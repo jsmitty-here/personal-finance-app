@@ -33,9 +33,10 @@ export function AppShell({ children }: AppShellProps) {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const mobileSidebarRef = useRef<HTMLElement>(null)
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (isMobileSidebarOpen) mobileSidebarRef.current?.focus()
+    if (isMobileSidebarOpen) mobileCloseButtonRef.current?.focus()
   }, [isMobileSidebarOpen])
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -146,6 +147,7 @@ export function AppShell({ children }: AppShellProps) {
           onClick={() => setIsMobileSidebarOpen(false)}
           className="absolute inset-0 bg-black/30"
           aria-label="Close sidebar overlay"
+          tabIndex={-1}
         />
         <aside
           ref={mobileSidebarRef}
@@ -165,6 +167,7 @@ export function AppShell({ children }: AppShellProps) {
               <p className="text-xs text-gray-500">Personal Finance App</p>
             </div>
             <button
+              ref={mobileCloseButtonRef}
               type="button"
               onClick={() => setIsMobileSidebarOpen(false)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"
