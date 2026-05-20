@@ -14,6 +14,7 @@ export function SettingsPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
   const [newSubcategoryByCategory, setNewSubcategoryByCategory] = useState<Record<string, { name: string; icon: string }>>({})
+  const [expandedTaxonomyCategoryId, setExpandedTaxonomyCategoryId] = useState<string | null>(null)
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ['owners'],
@@ -237,38 +238,63 @@ export function SettingsPage() {
                 <div className="flex justify-end">
                   <button type="button" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!newCategoryName.trim()} onClick={() => createCategoryMutation.mutate({ name: newCategoryName.trim(), icon: newCategoryIcon.trim() || '🏷️' })}>Add category</button>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {categoryTaxonomy.map(category => {
                     const draft = categoryDrafts[category.id] ?? { name: category.name, icon: category.icon }
                     const newSubcategory = newSubcategoryByCategory[category.id] ?? { name: '', icon: '📂' }
+                    const isExpanded = expandedTaxonomyCategoryId === category.id
                     return (
-                      <div key={category.id} className="rounded-md border border-border p-3 space-y-3">
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
-                          <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" value={draft.icon} onChange={e => updateCategoryDraft(category.id, 'icon', e.target.value)} />
-                          <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={draft.name} onChange={e => updateCategoryDraft(category.id, 'name', e.target.value)} />
-                          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!draft.name.trim()} onClick={() => updateCategoryMutation.mutate({ categoryId: category.id, name: draft.name.trim(), icon: draft.icon.trim() || '🏷️' })}>Save</button>
+                      <div key={category.id} className="rounded-md border border-border p-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            className="w-20 border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground"
+                            value={draft.icon}
+                            onChange={e => updateCategoryDraft(category.id, 'icon', e.target.value)}
+                          />
+                          <input
+                            className="min-w-0 flex-1 border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground"
+                            value={draft.name}
+                            onChange={e => updateCategoryDraft(category.id, 'name', e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50"
+                            disabled={!draft.name.trim()}
+                            onClick={() => updateCategoryMutation.mutate({ categoryId: category.id, name: draft.name.trim(), icon: draft.icon.trim() || '🏷️' })}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md border border-border px-3 py-2 text-sm text-foreground"
+                            onClick={() => setExpandedTaxonomyCategoryId(prev => (prev === category.id ? null : category.id))}
+                          >
+                            {isExpanded ? 'Hide subcategories' : `Subcategories (${category.subcategories.length})`}
+                          </button>
                         </div>
-                        <div className="space-y-2">
-                          {category.subcategories.map(subcategory => {
-                            const subKey = subcategoryDraftKey(category.id, subcategory.id)
-                            const subDraft = subcategoryEdits[subKey] ?? { name: subcategory.name, icon: subcategory.icon }
-                            return (
-                              <div key={subcategory.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
-                                <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" value={subDraft.icon} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'icon', e.target.value)} />
-                                <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={subDraft.name} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'name', e.target.value)} />
-                                <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!subDraft.name.trim()} onClick={() => updateSubcategoryMutation.mutate({ categoryId: category.id, subcategoryId: subcategory.id, name: subDraft.name.trim(), icon: subDraft.icon.trim() || '📂' })}>Save</button>
-                              </div>
-                            )
-                          })}
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
-                            <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" placeholder="📂" value={newSubcategory.icon} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, icon: e.target.value } }))} />
-                            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder={`Add subcategory to ${category.name}`} value={newSubcategory.name} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, name: e.target.value } }))} />
-                            <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!newSubcategory.name.trim()} onClick={() => {
-                              createSubcategoryMutation.mutate({ categoryId: category.id, name: newSubcategory.name.trim(), icon: newSubcategory.icon.trim() || '📂' })
-                              setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { name: '', icon: '📂' } }))
-                            }}>Add</button>
+                        {isExpanded ? (
+                          <div className="mt-2 rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                            {category.subcategories.map(subcategory => {
+                              const subKey = subcategoryDraftKey(category.id, subcategory.id)
+                              const subDraft = subcategoryEdits[subKey] ?? { name: subcategory.name, icon: subcategory.icon }
+                              return (
+                                <div key={subcategory.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
+                                  <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" value={subDraft.icon} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'icon', e.target.value)} />
+                                  <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={subDraft.name} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'name', e.target.value)} />
+                                  <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!subDraft.name.trim()} onClick={() => updateSubcategoryMutation.mutate({ categoryId: category.id, subcategoryId: subcategory.id, name: subDraft.name.trim(), icon: subDraft.icon.trim() || '📂' })}>Save</button>
+                                </div>
+                              )
+                            })}
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
+                              <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" placeholder="📂" value={newSubcategory.icon} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, icon: e.target.value } }))} />
+                              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder={`Add subcategory to ${category.name}`} value={newSubcategory.name} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, name: e.target.value } }))} />
+                              <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!newSubcategory.name.trim()} onClick={() => {
+                                createSubcategoryMutation.mutate({ categoryId: category.id, name: newSubcategory.name.trim(), icon: newSubcategory.icon.trim() || '📂' })
+                                setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { name: '', icon: '📂' } }))
+                              }}>Add</button>
+                            </div>
                           </div>
-                        </div>
+                        ) : null}
                       </div>
                     )
                   })}
