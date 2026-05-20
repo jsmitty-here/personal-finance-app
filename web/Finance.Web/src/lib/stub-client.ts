@@ -165,7 +165,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
   updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string }) {
     const category = categoryTaxonomy.find(x => x.id === categoryId);
     if (!category) throw new Error(`Category ${categoryId} not found`);
-    const idx = category?.subcategories.findIndex(x => x.id === subcategoryId) ?? -1;
+    const idx = category.subcategories.findIndex(x => x.id === subcategoryId);
     if (idx < 0) throw new Error(`Subcategory ${subcategoryId} not found`);
     category.subcategories[idx] = {
       ...category.subcategories[idx],
