@@ -46,6 +46,41 @@ export function AppShell({ children }: AppShellProps) {
         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
     )
 
+  const handleMobileSidebarKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      setIsMobileSidebarOpen(false)
+      return
+    }
+
+    if (event.key !== 'Tab') return
+
+    const container = mobileSidebarRef.current
+    if (!container) return
+
+    const focusableElements = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    )
+
+    if (focusableElements.length === 0) return
+
+    const first = focusableElements[0]
+    const last = focusableElements[focusableElements.length - 1]
+    const activeElement = document.activeElement
+
+    if (event.shiftKey && activeElement === first) {
+      event.preventDefault()
+      last.focus()
+      return
+    }
+
+    if (!event.shiftKey && activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <div className="relative flex h-screen bg-gray-50">
       {/* Desktop sidebar */}
@@ -122,9 +157,7 @@ export function AppShell({ children }: AppShellProps) {
           aria-modal="true"
           aria-label="Navigation"
           tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setIsMobileSidebarOpen(false)
-          }}
+          onKeyDown={handleMobileSidebarKeyDown}
         >
           <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-2">
             <div>
