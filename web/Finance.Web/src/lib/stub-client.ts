@@ -564,13 +564,13 @@ class StubFinanceApiClient implements IFinanceApiClient {
       })
       byDay[tx.date] = (byDay[tx.date] ?? 0) + Math.abs(tx.amount)
     })
-    const monthly = asChartPoints(Object.fromEntries(
+    const monthly = asChartPoints(
       Object.entries(byDay).reduce<Record<string, number>>((acc, [date, value]) => {
         const key = monthKey(date)
         acc[key] = (acc[key] ?? 0) + value
         return acc
       }, {}),
-    ))
+    )
     const monthOverMonth = monthly.map((point, index) => ({
       ...point,
       secondaryValue: index > 0 ? monthly[index - 1].value : point.value,

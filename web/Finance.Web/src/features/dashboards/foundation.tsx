@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet } from 'react-router-dom'
@@ -62,7 +63,7 @@ export function DashboardFoundationProvider({ children }: { children: ReactNode 
   })
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap(tx => tx.tags))).sort(), [transactions])
 
-  const toApiFilters: DashboardFiltersInput = {
+  const toApiFilters = useMemo<DashboardFiltersInput>(() => ({
     period: filters.period,
     dateFrom: filters.period === 'custom' ? filters.dateFrom : undefined,
     dateTo: filters.period === 'custom' ? filters.dateTo : undefined,
@@ -74,7 +75,7 @@ export function DashboardFoundationProvider({ children }: { children: ReactNode 
     tag: filters.tag === 'all' ? undefined : filters.tag,
     transactionType: filters.transactionType === 'all' ? undefined : filters.transactionType,
     ownershipView: filters.ownershipView,
-  }
+  }), [filters])
 
   useEffect(() => {
     validateDashboardFilters(toApiFilters)

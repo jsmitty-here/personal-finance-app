@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useTheme } from '@/context/useTheme'
@@ -56,17 +57,37 @@ export function DashboardLine({ data, dataKey = 'value', secondaryDataKey, onDri
   const { getCssVar, tooltipStyle } = useChartTheme()
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data} onClick={(state) => {
-        if (!onDrillDown) return
-        const payload = state?.activePayload?.[0]?.payload as ChartPoint | undefined
-        if (payload) onDrillDown(payload)
-      }}>
+      <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke={getCssVar('--border')} />
         <XAxis dataKey="label" stroke={getCssVar('--muted-foreground')} />
         <YAxis stroke={getCssVar('--muted-foreground')} />
         <Tooltip formatter={(value) => typeof value === 'number' ? fmtCurrency(value) : String(value)} contentStyle={tooltipStyle} />
-        <Line type="monotone" dataKey={String(dataKey)} stroke={getCssVar('--primary')} strokeWidth={2} dot={false} />
-        {secondaryDataKey ? <Line type="monotone" dataKey={String(secondaryDataKey)} stroke={getCssVar('--info')} strokeWidth={2} dot={false} /> : null}
+        <Line
+          type="monotone"
+          dataKey={String(dataKey)}
+          stroke={getCssVar('--primary')}
+          strokeWidth={2}
+          dot={false}
+          onClick={(lineState) => {
+            if (!onDrillDown) return
+            const point = (lineState as { payload?: ChartPoint })?.payload
+            if (point) onDrillDown(point)
+          }}
+        />
+        {secondaryDataKey ? (
+          <Line
+            type="monotone"
+            dataKey={String(secondaryDataKey)}
+            stroke={getCssVar('--info')}
+            strokeWidth={2}
+            dot={false}
+            onClick={(lineState) => {
+              if (!onDrillDown) return
+              const point = (lineState as { payload?: ChartPoint })?.payload
+              if (point) onDrillDown(point)
+            }}
+          />
+        ) : null}
       </LineChart>
     </ResponsiveContainer>
   )
@@ -76,18 +97,34 @@ export function DashboardBar({ data, dataKey = 'value', secondaryDataKey, onDril
   const { getCssVar, tooltipStyle } = useChartTheme()
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} onClick={(state) => {
-        if (!onDrillDown) return
-        const payload = state?.activePayload?.[0]?.payload as ChartPoint | undefined
-        if (payload) onDrillDown(payload)
-      }}>
+      <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke={getCssVar('--border')} />
         <XAxis dataKey="label" stroke={getCssVar('--muted-foreground')} />
         <YAxis stroke={getCssVar('--muted-foreground')} />
         <Tooltip formatter={(value) => typeof value === 'number' ? fmtCurrency(value) : String(value)} contentStyle={tooltipStyle} />
         <Legend />
-        <Bar dataKey={String(dataKey)} fill={getCssVar('--primary')} radius={[6, 6, 0, 0]} />
-        {secondaryDataKey ? <Bar dataKey={String(secondaryDataKey)} fill={getCssVar('--info')} radius={[6, 6, 0, 0]} /> : null}
+        <Bar
+          dataKey={String(dataKey)}
+          fill={getCssVar('--primary')}
+          radius={[6, 6, 0, 0]}
+          onClick={(barState) => {
+            if (!onDrillDown) return
+            const point = (barState as { payload?: ChartPoint })?.payload
+            if (point) onDrillDown(point)
+          }}
+        />
+        {secondaryDataKey ? (
+          <Bar
+            dataKey={String(secondaryDataKey)}
+            fill={getCssVar('--info')}
+            radius={[6, 6, 0, 0]}
+            onClick={(barState) => {
+              if (!onDrillDown) return
+              const point = (barState as { payload?: ChartPoint })?.payload
+              if (point) onDrillDown(point)
+            }}
+          />
+        ) : null}
       </BarChart>
     </ResponsiveContainer>
   )
@@ -146,4 +183,3 @@ export function DashboardTable({ rows }: { rows: ChartPoint[] }) {
     </div>
   )
 }
-
