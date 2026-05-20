@@ -39,17 +39,17 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+      <h2 className="text-2xl font-bold text-foreground">Settings</h2>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">Owners</h3>
-          <p className="text-sm text-gray-500 mt-0.5">Manage the owners associated with your accounts and transactions.</p>
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">Owners</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage the owners associated with your accounts and transactions.</p>
         </div>
         {isLoading ? (
-          <p className="px-5 py-6 text-sm text-gray-500">Loading…</p>
+          <p className="px-5 py-6 text-sm text-muted-foreground">Loading…</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-border">
             {owners.map(owner => (
               <li key={owner.id} className="flex items-center gap-4 px-5 py-3">
                 <div
@@ -59,7 +59,7 @@ export function SettingsPage() {
                 {editingId === owner.id ? (
                   <div className="flex items-center gap-2 flex-1">
                     <input
-                      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm flex-1"
+                      className="border border-input rounded-md px-3 py-1.5 text-sm flex-1 bg-card text-foreground"
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => {
@@ -70,14 +70,14 @@ export function SettingsPage() {
                     />
                     <button
                       onClick={() => saveEdit(owner.id)}
-                      className="p-1.5 rounded-md text-green-600 hover:bg-green-50"
+                      className="p-1.5 rounded-md text-success hover:bg-success-subtle transition-colors"
                       aria-label="Save"
                     >
                       <Check size={15} />
                     </button>
                     <button
                       onClick={cancelEdit}
-                      className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100"
+                      className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
                       aria-label="Cancel"
                     >
                       <X size={15} />
@@ -85,10 +85,10 @@ export function SettingsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between flex-1">
-                    <span className="text-sm font-medium text-gray-900">{owner.name}</span>
+                    <span className="text-sm font-medium text-foreground">{owner.name}</span>
                     <button
                       onClick={() => startEdit(owner.id, owner.name)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                       aria-label={`Edit ${owner.name}`}
                     >
                       <Pencil size={14} />

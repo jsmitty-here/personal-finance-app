@@ -1,1 +1,108 @@
 @import "tailwindcss";
+
+/* ─── Class-based dark mode ──────────────────────────────────────────────── */
+@custom-variant dark (.dark &);
+
+/* ─── Semantic color tokens (reference CSS custom properties) ────────────── */
+@theme inline {
+  --color-background:                    var(--background);
+  --color-foreground:                    var(--foreground);
+  --color-card:                          var(--card);
+  --color-card-foreground:               var(--card-foreground);
+  --color-border:                        var(--border);
+  --color-input:                         var(--input);
+  --color-ring:                          var(--ring);
+  --color-muted:                         var(--muted);
+  --color-muted-foreground:              var(--muted-foreground);
+  --color-primary:                       var(--primary);
+  --color-primary-foreground:            var(--primary-foreground);
+  --color-primary-subtle:                var(--primary-subtle);
+  --color-primary-subtle-foreground:     var(--primary-subtle-foreground);
+  --color-primary-border:                var(--primary-border);
+  --color-success:                       var(--success);
+  --color-success-foreground:            var(--success-foreground);
+  --color-success-subtle:                var(--success-subtle);
+  --color-success-subtle-foreground:     var(--success-subtle-foreground);
+  --color-success-border:                var(--success-border);
+  --color-info-subtle:                   var(--info-subtle);
+  --color-info-subtle-foreground:        var(--info-subtle-foreground);
+  --color-secondary-subtle:              var(--secondary-subtle);
+  --color-secondary-subtle-foreground:   var(--secondary-subtle-foreground);
+  --color-destructive:                   var(--destructive);
+  --color-destructive-foreground:        var(--destructive-foreground);
+  --color-destructive-subtle:            var(--destructive-subtle);
+  --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
+  --color-destructive-border:            var(--destructive-border);
+}
+
+/* ─── Light mode ─────────────────────────────────────────────────────────── */
+:root {
+  --background:                    #f9fafb;  /* gray-50  */
+  --foreground:                    #111827;  /* gray-900 */
+  --card:                          #ffffff;
+  --card-foreground:               #111827;
+  --border:                        #e5e7eb;  /* gray-200 */
+  --input:                         #d1d5db;  /* gray-300 */
+  --ring:                          #6366f1;  /* indigo-500 */
+  --muted:                         #f3f4f6;  /* gray-100 */
+  --muted-foreground:              #6b7280;  /* gray-500 */
+  --primary:                       #4f46e5;  /* indigo-600 */
+  --primary-foreground:            #ffffff;
+  --primary-subtle:                #eef2ff;  /* indigo-50  */
+  --primary-subtle-foreground:     #4338ca;  /* indigo-700 */
+  --primary-border:                #c7d2fe;  /* indigo-200 */
+  --success:                       #16a34a;  /* green-600  */
+  --success-foreground:            #ffffff;
+  --success-subtle:                #f0fdf4;  /* green-50   */
+  --success-subtle-foreground:     #15803d;  /* green-700  */
+  --success-border:                #bbf7d0;  /* green-200  */
+  --info-subtle:                   #eff6ff;  /* blue-50    */
+  --info-subtle-foreground:        #1d4ed8;  /* blue-700   */
+  --secondary-subtle:              #faf5ff;  /* purple-50  */
+  --secondary-subtle-foreground:   #7e22ce;  /* purple-700 */
+  --destructive:                   #dc2626;  /* red-600    */
+  --destructive-foreground:        #ffffff;
+  --destructive-subtle:            #fef2f2;  /* red-50     */
+  --destructive-subtle-foreground: #b91c1c;  /* red-700    */
+  --destructive-border:            #fecaca;  /* red-200    */
+}
+
+/* ─── Dark mode ──────────────────────────────────────────────────────────── */
+.dark {
+  --background:                    #0f172a;  /* slate-900  */
+  --foreground:                    #f1f5f9;  /* slate-100  */
+  --card:                          #1e293b;  /* slate-800  */
+  --card-foreground:               #f1f5f9;
+  --border:                        #334155;  /* slate-700  */
+  --input:                         #475569;  /* slate-600  */
+  --ring:                          #818cf8;  /* indigo-400 */
+  --muted:                         #1e293b;  /* slate-800  */
+  --muted-foreground:              #94a3b8;  /* slate-400  */
+  --primary:                       #818cf8;  /* indigo-400 */
+  --primary-foreground:            #1e1b4b;  /* indigo-950 */
+  --primary-subtle:                #1e1b4b;  /* indigo-950 */
+  --primary-subtle-foreground:     #c7d2fe;  /* indigo-200 */
+  --primary-border:                #3730a3;  /* indigo-800 */
+  --success:                       #4ade80;  /* green-400  */
+  --success-foreground:            #052e16;  /* green-950  */
+  --success-subtle:                #14532d;  /* green-900  */
+  --success-subtle-foreground:     #bbf7d0;  /* green-200  */
+  --success-border:                #166534;  /* green-800  */
+  --info-subtle:                   #1e3a5f;  /* blue-900   */
+  --info-subtle-foreground:        #93c5fd;  /* blue-300   */
+  --secondary-subtle:              #3b0764;  /* purple-950 */
+  --secondary-subtle-foreground:   #d8b4fe;  /* purple-300 */
+  --destructive:                   #f87171;  /* red-400    */
+  --destructive-foreground:        #ffffff;
+  --destructive-subtle:            #450a0a;  /* red-950    */
+  --destructive-subtle-foreground: #fecaca;  /* red-200    */
+  --destructive-border:            #991b1b;  /* red-800    */
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
