@@ -4,7 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1]
+const base = process.env.GITHUB_ACTIONS && repoName ? `/${repoName}/` : '/'
+
 export default defineConfig({
+  base,
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   plugins: [
     tailwindcss(),
@@ -15,7 +19,7 @@ export default defineConfig({
         name: 'Personal Finance App',
         short_name: 'Finance',
         theme_color: '#ffffff',
-        icons: [{ src: '/vite.svg', sizes: '192x192', type: 'image/svg+xml' }],
+        icons: [{ src: `${base}vite.svg`, sizes: '192x192', type: 'image/svg+xml' }],
       },
     }),
   ],
