@@ -5,8 +5,22 @@ import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/ap
 
 const TRANSACTION_TABLE_COLUMNS = ['Date', 'Description', 'Merchant', 'Account', 'Category', 'Tags', 'Type', 'Rule Match', 'Amount', 'Actions'] as const
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  function fmt(n: number) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  }
+
+function formatCategoryPath(
+  categoryIconByName: Record<string, string>,
+  subcategoryIconByName: Record<string, string>,
+  category?: string,
+  subcategory?: string,
+  subSubcategory?: string,
+) {
+  if (!category) return '—'
+  const categoryLabel = `${categoryIconByName[category] ? `${categoryIconByName[category]} ` : ''}${category}`
+  const subcategoryLabel = subcategory ? `${subcategoryIconByName[subcategory] ? `${subcategoryIconByName[subcategory]} ` : ''}${subcategory}` : ''
+  const subSubcategoryLabel = subSubcategory ?? ''
+  return [categoryLabel, subcategoryLabel, subSubcategoryLabel].filter(Boolean).join(' / ')
 }
 
 export function TransactionsPage() {
@@ -24,12 +38,18 @@ export function TransactionsPage() {
   const [editType, setEditType] = useState<string>('expense')
   const [editCategory, setEditCategory] = useState('')
   const [editSubcategory, setEditSubcategory] = useState('')
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
+  const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false)
+  const [newSubcategoryName, setNewSubcategoryName] = useState('')
+  const [newSubcategoryIcon, setNewSubcategoryIcon] = useState('📂')
   const [editTags, setEditTags] = useState('')
   const [splitTxId, setSplitTxId] = useState<string | null>(null)
   const [splitMode, setSplitMode] = useState<'amount' | 'percent'>('amount')
-  const [splitRows, setSplitRows] = useState<Array<{ amount: string; category: string; tags: string }>>([
-    { amount: '', category: '', tags: '' },
-    { amount: '', category: '', tags: '' },
+  const [splitRows, setSplitRows] = useState<Array<{ amount: string; category: string; subcategory: string; tags: string }>>([
+    { amount: '', category: '', subcategory: '', tags: '' },
+    { amount: '', category: '', subcategory: '', tags: '' },
   ])
 
   const { data: accounts = [] } = useQuery({
@@ -57,6 +77,11 @@ export function TransactionsPage() {
       }),
   })
 
+  const { data: categoryTaxonomy = [] } = useQuery({
+    queryKey: ['category-taxonomy'],
+    queryFn: () => apiClient.getCategoryTaxonomy(),
+  })
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Transaction> }) => apiClient.updateTransaction(id, data),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['transactions'] }),
@@ -66,9 +91,19 @@ export function TransactionsPage() {
     mutationFn: ({ id, splits }: { id: string; splits: Omit<TransactionSplit, 'id'>[] }) => apiClient.splitTransaction(id, splits),
     onSuccess: () => {
       setSplitTxId(null)
-      setSplitRows([{ amount: '', category: '', tags: '' }, { amount: '', category: '', tags: '' }])
+      setSplitRows([{ amount: '', category: '', subcategory: '', tags: '' }, { amount: '', category: '', subcategory: '', tags: '' }])
       void qc.invalidateQueries({ queryKey: ['transactions'] })
     },
+  })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: ({ name, icon }: { name: string; icon: string }) => apiClient.createCategory({ name, icon }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
+  })
+
+  const createSubcategoryMutation = useMutation({
+    mutationFn: ({ categoryId, name, icon }: { categoryId: string; name: string; icon: string }) => apiClient.createSubcategory(categoryId, { name, icon }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
   })
 
   const accountMap = Object.fromEntries(accounts.map(a => [a.id, a.displayName]))
@@ -76,6 +111,16 @@ export function TransactionsPage() {
 
   const tagOptions = Array.from(new Set(transactions.flatMap(tx => tx.tags))).sort()
   const categoryOptions = Array.from(new Set(transactions.map(tx => tx.category).filter(Boolean))) as string[]
+  const categoryIconByName = Object.fromEntries(categoryTaxonomy.map(category => [category.name, category.icon]))
+  const subcategoryIconByName = Object.fromEntries(
+    categoryTaxonomy.flatMap(category => category.subcategories.map(subcategory => [subcategory.name, subcategory.icon])),
+  )
+  const taxonomyCategoryOptions = categoryTaxonomy.map(category => ({
+    ...category,
+    display: `${category.icon} ${category.name}`,
+  }))
+  const selectedTaxonomyCategory = categoryTaxonomy.find(category => category.name === editCategory)
+  const subcategoryOptions = selectedTaxonomyCategory?.subcategories ?? []
   const typeOptions = Array.from(new Set(transactions.map(tx => tx.type)))
 
   const filteredTransactions = useMemo(() => transactions.filter((tx) => {
@@ -118,15 +163,43 @@ export function TransactionsPage() {
     setEditCategory(tx.category ?? '')
     setEditSubcategory(tx.subcategory ?? '')
     setEditTags(tx.tags.join(', '))
+    setIsCreatingCategory(false)
+    setNewCategoryName('')
+    setNewCategoryIcon('🏷️')
+    setIsCreatingSubcategory(false)
+    setNewSubcategoryName('')
+    setNewSubcategoryIcon('📂')
   }
 
-  function submitEdit(txId: string) {
+  async function saveTransactionEdit(txId: string) {
+    let categoryToSave = editCategory
+    let subcategoryToSave = editSubcategory
+    let categoryIdForSubcategory = categoryTaxonomy.find(category => category.name === categoryToSave)?.id
+
+    if (isCreatingCategory && newCategoryName.trim()) {
+      const createdCategory = await createCategoryMutation.mutateAsync({
+        name: newCategoryName.trim(),
+        icon: newCategoryIcon.trim() || '🏷️',
+      })
+      categoryToSave = createdCategory.name
+      categoryIdForSubcategory = createdCategory.id
+    }
+
+    if (isCreatingSubcategory && newSubcategoryName.trim() && categoryIdForSubcategory) {
+      const createdSubcategory = await createSubcategoryMutation.mutateAsync({
+        categoryId: categoryIdForSubcategory,
+        name: newSubcategoryName.trim(),
+        icon: newSubcategoryIcon.trim() || '📂',
+      })
+      subcategoryToSave = createdSubcategory.name
+    }
+
     updateMutation.mutate({
       id: txId,
       data: {
         type: editType as Transaction['type'],
-        category: editCategory || undefined,
-        subcategory: editSubcategory || undefined,
+        category: categoryToSave || undefined,
+        subcategory: subcategoryToSave || undefined,
         tags: editTags.split(',').map(t => t.trim()).filter(Boolean),
         isManualOverride: true,
       },
@@ -144,7 +217,7 @@ export function TransactionsPage() {
         return {
           amount: splitAmount,
           category: row.category.trim(),
-          subcategory: undefined,
+          subcategory: row.subcategory.trim() || undefined,
           tags: row.tags.split(',').map(t => t.trim()).filter(Boolean),
           ownershipAllocation: accounts.find(a => a.id === tx.accountId)?.ownershipAllocation,
         }
@@ -207,7 +280,7 @@ export function TransactionsPage() {
           <label className="text-xs font-medium text-muted-foreground">Category</label>
           <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">All Categories</option>
-            {categoryOptions.map(value => <option key={value} value={value}>{value}</option>)}
+            {categoryOptions.map(value => <option key={value} value={value}>{categoryIconByName[value] ? `${categoryIconByName[value]} ` : ''}{value}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -251,7 +324,7 @@ export function TransactionsPage() {
                 <span className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(tx.amount)}</span>
               </div>
               <p className="text-xs text-muted-foreground">Merchant: {tx.merchant ?? '—'} {tx.isManualOverride ? '· Manual override' : ''}</p>
-              <p className="text-xs text-muted-foreground">Category: {tx.category ?? '—'}{tx.subcategory ? ` / ${tx.subcategory}` : ''}</p>
+              <p className="text-xs text-muted-foreground">Category: {formatCategoryPath(categoryIconByName, subcategoryIconByName, tx.category, tx.subcategory, undefined)}</p>
               <p className="text-xs text-muted-foreground">Tags: {tx.tags.length ? tx.tags.join(', ') : 'None'}</p>
               <p className="text-xs text-muted-foreground">Ownership: {(tx.ownershipOverride ?? txAccount?.ownershipAllocation ?? []).map(o => `${ownerById[o.ownerId] ?? o.ownerId} ${o.percentage}%`).join(', ') || 'N/A'}</p>
               <p className="text-xs text-muted-foreground">Rule: {ruleState.winner ? `${ruleState.winner.name} (won)` : 'No winner'} · {ruleState.matched.length} matched</p>
@@ -297,7 +370,7 @@ export function TransactionsPage() {
                     <td className="px-4 py-3 text-foreground max-w-xs truncate">{tx.description}{tx.isManualOverride ? <span className="ml-2 text-[10px] text-info">manual</span> : null}</td>
                     <td className="px-4 py-3 text-muted-foreground">{tx.merchant ?? '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{accountMap[tx.accountId] ?? tx.accountId}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{tx.category ?? '—'}{tx.subcategory ? ` / ${tx.subcategory}` : ''}{tx.subSubcategory ? ` / ${tx.subSubcategory}` : ''}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatCategoryPath(categoryIconByName, subcategoryIconByName, tx.category, tx.subcategory, tx.subSubcategory)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{tx.tags.length ? tx.tags.join(', ') : '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -338,13 +411,64 @@ export function TransactionsPage() {
             <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value)}>
               {typeOptions.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
-            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category" value={editCategory} onChange={e => setEditCategory(e.target.value)} />
-            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Subcategory" value={editSubcategory} onChange={e => setEditSubcategory(e.target.value)} />
+            <select
+              className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground"
+              value={isCreatingCategory ? '__new__' : editCategory}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setIsCreatingCategory(true)
+                  setEditCategory('')
+                  setEditSubcategory('')
+                } else {
+                  setIsCreatingCategory(false)
+                  setEditCategory(e.target.value)
+                  setEditSubcategory('')
+                }
+              }}
+            >
+              <option value="">Select category</option>
+              {taxonomyCategoryOptions.map(category => (
+                <option key={category.id} value={category.name}>{category.display}</option>
+              ))}
+              <option value="__new__">➕ Create new category</option>
+            </select>
+            <select
+              className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground"
+              value={isCreatingSubcategory ? '__new__' : editSubcategory}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setIsCreatingSubcategory(true)
+                  setEditSubcategory('')
+                } else {
+                  setIsCreatingSubcategory(false)
+                  setEditSubcategory(e.target.value)
+                }
+              }}
+              disabled={!editCategory || isCreatingCategory}
+            >
+              <option value="">{editCategory ? 'Select subcategory' : 'Select category first'}</option>
+              {subcategoryOptions.map(subcategory => (
+                <option key={subcategory.id} value={subcategory.name}>{subcategory.icon} {subcategory.name}</option>
+              ))}
+              {editCategory ? <option value="__new__">➕ Create new subcategory</option> : null}
+            </select>
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Tags (comma-separated)" value={editTags} onChange={e => setEditTags(e.target.value)} />
           </div>
+          {isCreatingCategory && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category icon (emoji)" value={newCategoryIcon} onChange={e => setNewCategoryIcon(e.target.value)} />
+            </div>
+          )}
+          {isCreatingSubcategory && !isCreatingCategory && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="New subcategory name" value={newSubcategoryName} onChange={e => setNewSubcategoryName(e.target.value)} />
+              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Subcategory icon (emoji)" value={newSubcategoryIcon} onChange={e => setNewSubcategoryIcon(e.target.value)} />
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setEditingTxId(null)} className="rounded-md border border-border px-3 py-2 text-sm text-foreground">Cancel</button>
-            <button type="button" onClick={() => submitEdit(editingTxId)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save override</button>
+            <button type="button" onClick={() => saveTransactionEdit(editingTxId)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save override</button>
           </div>
         </div>
       )}
@@ -361,15 +485,24 @@ export function TransactionsPage() {
           </div>
           <div className="space-y-2">
             {splitRows.map((row, idx) => (
-              <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" type="number" placeholder={splitMode === 'percent' ? 'Percent' : 'Amount'} value={row.amount} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, amount: e.target.value } : current))} />
-                <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category" value={row.category} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, category: e.target.value } : current))} />
+                <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={row.category} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, category: e.target.value, subcategory: '' } : current))}>
+                  <option value="">Select category</option>
+                  {taxonomyCategoryOptions.map(category => <option key={category.id} value={category.name}>{category.display}</option>)}
+                </select>
+                <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={row.subcategory} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, subcategory: e.target.value } : current))} disabled={!row.category}>
+                  <option value="">{row.category ? 'Select subcategory' : 'Select category first'}</option>
+                  {(categoryTaxonomy.find(category => category.name === row.category)?.subcategories ?? []).map(subcategory => (
+                    <option key={subcategory.id} value={subcategory.name}>{subcategory.icon} {subcategory.name}</option>
+                  ))}
+                </select>
                 <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Tags (comma-separated)" value={row.tags} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, tags: e.target.value } : current))} />
               </div>
             ))}
           </div>
           <div className="flex justify-between">
-            <button type="button" onClick={() => setSplitRows(prev => [...prev, { amount: '', category: '', tags: '' }])} className="text-sm text-primary hover:underline">Add split row</button>
+            <button type="button" onClick={() => setSplitRows(prev => [...prev, { amount: '', category: '', subcategory: '', tags: '' }])} className="text-sm text-primary hover:underline">Add split row</button>
             <div className="flex gap-2">
               <button type="button" onClick={() => setSplitTxId(null)} className="rounded-md border border-border px-3 py-2 text-sm text-foreground">Cancel</button>
               <button type="button" onClick={() => {

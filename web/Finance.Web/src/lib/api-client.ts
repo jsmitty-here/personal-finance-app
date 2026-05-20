@@ -50,6 +50,19 @@ export interface TransactionSplit {
   ownershipAllocation?: OwnershipAllocation[];
 }
 
+export interface SubcategoryDefinition {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+export interface CategoryDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  subcategories: SubcategoryDefinition[];
+}
+
 export interface CategorizationRule {
   id: string;
   name: string;
@@ -123,6 +136,11 @@ export interface IFinanceApiClient {
   getTransaction(id: string): Promise<Transaction>;
   updateTransaction(id: string, tx: Partial<Transaction>): Promise<Transaction>;
   splitTransaction(id: string, splits: Omit<TransactionSplit, 'id'>[]): Promise<Transaction>;
+  getCategoryTaxonomy(): Promise<CategoryDefinition[]>;
+  createCategory(category: { name: string; icon: string }): Promise<CategoryDefinition>;
+  updateCategory(categoryId: string, category: { name?: string; icon?: string }): Promise<CategoryDefinition>;
+  createSubcategory(categoryId: string, subcategory: { name: string; icon: string }): Promise<SubcategoryDefinition>;
+  updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string }): Promise<SubcategoryDefinition>;
 
   // Rules
   getRules(): Promise<CategorizationRule[]>;
