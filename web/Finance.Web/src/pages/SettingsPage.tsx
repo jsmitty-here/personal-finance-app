@@ -7,6 +7,8 @@ export function SettingsPage() {
   const qc = useQueryClient()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState<string>('')
+  const [editColor, setEditColor] = useState<string>('#6366f1')
+  const [ownershipHistoryMode, setOwnershipHistoryMode] = useState<'point-in-time' | 'historical-retrofit'>('point-in-time')
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ['owners'],
@@ -14,7 +16,7 @@ export function SettingsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => apiClient.updateOwner(id, { name }),
+    mutationFn: ({ id, name, color }: { id: string; name: string; color?: string }) => apiClient.updateOwner(id, { name, color }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['owners'] })
       setEditingId(null)
@@ -24,6 +26,8 @@ export function SettingsPage() {
   function startEdit(id: string, name: string) {
     setEditingId(id)
     setEditName(name)
+    const owner = owners.find(o => o.id === id)
+    setEditColor(owner?.color ?? '#6366f1')
   }
 
   function cancelEdit() {
@@ -33,7 +37,7 @@ export function SettingsPage() {
 
   function saveEdit(id: string) {
     if (editName.trim()) {
-      updateMutation.mutate({ id, name: editName.trim() })
+      updateMutation.mutate({ id, name: editName.trim(), color: editColor })
     }
   }
 
@@ -43,7 +47,7 @@ export function SettingsPage() {
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="font-semibold text-foreground">Owners</h3>
+          <h3 className="font-semibold text-foreground">Owner Aliases & Colors</h3>
           <p className="text-sm text-muted-foreground mt-0.5">Manage the owners associated with your accounts and transactions.</p>
         </div>
         {isLoading ? (
@@ -57,7 +61,7 @@ export function SettingsPage() {
                   style={{ backgroundColor: owner.color ?? '#94a3b8' }}
                 />
                 {editingId === owner.id ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex flex-col gap-2 flex-1 md:flex-row md:items-center">
                     <input
                       className="border border-input rounded-md px-3 py-1.5 text-sm flex-1 bg-card text-foreground"
                       value={editName}
@@ -68,6 +72,7 @@ export function SettingsPage() {
                       }}
                       autoFocus
                     />
+                    <input type="color" className="h-9 w-12 rounded border border-input bg-card" value={editColor} onChange={e => setEditColor(e.target.value)} />
                     <button
                       onClick={() => saveEdit(owner.id)}
                       className="p-1.5 rounded-md text-success hover:bg-success-subtle transition-colors"
@@ -99,6 +104,77 @@ export function SettingsPage() {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="bg-card rounded-lg border border-border p-5 space-y-3">
+          <h3 className="font-semibold text-foreground">Ownership Change History</h3>
+          <p className="text-sm text-muted-foreground">Choose how ownership changes affect historical reporting.</p>
+          <div className="flex flex-col gap-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={ownershipHistoryMode === 'point-in-time'}
+                onChange={() => setOwnershipHistoryMode('point-in-time')}
+              />
+              Point-in-time ownership
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={ownershipHistoryMode === 'historical-retrofit'}
+                onChange={() => setOwnershipHistoryMode('historical-retrofit')}
+              />
+              Historical retrofit ownership
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">Active mode: {ownershipHistoryMode}</p>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border p-5 space-y-3">
+          <h3 className="font-semibold text-foreground">Plaid Connection Management</h3>
+          <p className="text-sm text-muted-foreground">Connection health, relink actions, and webhook status scaffolding.</p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>• Linked institutions: 2 (stub)</p>
+            <p>• Last sync status: Healthy</p>
+            <div className="flex gap-2">
+              <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground">Relink Account</button>
+              <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground">Refresh Sync</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border p-5 space-y-3">
+          <h3 className="font-semibold text-foreground">Authentication Settings</h3>
+          <p className="text-sm text-muted-foreground">Security scaffolding for MFA, passkeys, and active sessions.</p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <label className="flex items-center gap-2"><input type="checkbox" /> Require MFA on login</label>
+            <label className="flex items-center gap-2"><input type="checkbox" /> Enable passkey sign-in</label>
+            <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground">View active sessions</button>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border p-5 space-y-3">
+          <h3 className="font-semibold text-foreground">Category Taxonomy</h3>
+          <p className="text-sm text-muted-foreground">System-seeded taxonomy view and management scaffold.</p>
+          <div className="rounded-md border border-border p-3 text-xs text-muted-foreground">
+            Food / Groceries / Organic
+            <br />
+            Entertainment / Streaming
+            <br />
+            Utilities / Electric
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-lg border border-border p-5">
+        <h3 className="font-semibold text-foreground">Audit Log / Change History</h3>
+        <p className="text-sm text-muted-foreground mt-1">Recent configuration changes and metadata updates.</p>
+        <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+          <p>2026-05-20 · Owner alias updated · by local user</p>
+          <p>2026-05-19 · Budget period changed · by local user</p>
+          <p>2026-05-18 · Rule priority reordered · by local user</p>
+        </div>
       </div>
     </div>
   )
