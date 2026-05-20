@@ -9,4 +9,3 @@ export function drillDown(point: ChartPoint) {
   const query = params.toString()
   window.location.hash = query ? `/transactions?${query}` : '/transactions'
 }
-

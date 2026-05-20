@@ -18,4 +18,3 @@ export function validateChartPoints(name: string, points: ChartPoint[]) {
     console.warn(`[DashboardValidation] ${name} contains NaN value for key ${invalid.key}.`)
   }
 }
-

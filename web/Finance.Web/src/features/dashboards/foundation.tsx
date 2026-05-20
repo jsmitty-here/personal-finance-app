@@ -152,14 +152,16 @@ export function DashboardRouteLayout() {
             <option value="reimbursement">reimbursement</option>
             <option value="adjustment">adjustment</option>
           </select>
-          <CategoryTreeMultiSelect
-            label="Category"
-            taxonomy={categoryTaxonomy}
-            selectedCategories={filters.categories}
-            selectedSubcategories={filters.subcategories}
-            onSelectedCategoriesChange={categories => setFilters({ categories })}
-            onSelectedSubcategoriesChange={subcategories => setFilters({ subcategories })}
-          />
+          <div>
+            <CategoryTreeMultiSelect
+              label="Category"
+              taxonomy={categoryTaxonomy}
+              selectedCategories={filters.categories}
+              selectedSubcategories={filters.subcategories}
+              onSelectedCategoriesChange={categories => setFilters({ categories })}
+              onSelectedSubcategoriesChange={subcategories => setFilters({ subcategories })}
+            />
+          </div>
           <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={filters.tag} onChange={e => setFilters({ tag: e.target.value })}>
             <option value="all">All Tags</option>
             {tags.map(tag => <option key={tag} value={tag}>{tag}</option>)}

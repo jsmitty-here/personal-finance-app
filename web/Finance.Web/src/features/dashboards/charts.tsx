@@ -4,14 +4,28 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 import { useTheme } from '@/context/useTheme'
 import type { ChartPoint, DataQualityFlags } from '@/lib/api-client'
 
-const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#06b6d4']
+function drillDownFromSeriesPayload(onDrillDown: ((point: ChartPoint) => void) | undefined, state: unknown) {
+  if (!onDrillDown) return
+  const point = (state as { payload?: ChartPoint })?.payload
+  if (point) onDrillDown(point)
+}
 
 function useChartTheme() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const getCssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   const tooltipStyle = isDark ? { backgroundColor: getCssVar('--card'), borderColor: getCssVar('--border'), color: getCssVar('--foreground') } : undefined
-  return { getCssVar, tooltipStyle }
+  const colors = [
+    getCssVar('--primary'),
+    getCssVar('--info'),
+    getCssVar('--success'),
+    getCssVar('--secondary'),
+    getCssVar('--destructive'),
+    getCssVar('--primary-subtle-foreground'),
+    getCssVar('--secondary-subtle-foreground'),
+    getCssVar('--info-subtle-foreground'),
+  ].filter(Boolean)
+  return { getCssVar, tooltipStyle, colors: colors.length > 0 ? colors : ['#6366f1'] }
 }
 
 export function fmtCurrency(n: number) {
@@ -68,11 +82,7 @@ export function DashboardLine({ data, dataKey = 'value', secondaryDataKey, onDri
           stroke={getCssVar('--primary')}
           strokeWidth={2}
           dot={false}
-          onClick={(lineState) => {
-            if (!onDrillDown) return
-            const point = (lineState as { payload?: ChartPoint })?.payload
-            if (point) onDrillDown(point)
-          }}
+          onClick={(lineState) => drillDownFromSeriesPayload(onDrillDown, lineState)}
         />
         {secondaryDataKey ? (
           <Line
@@ -81,11 +91,7 @@ export function DashboardLine({ data, dataKey = 'value', secondaryDataKey, onDri
             stroke={getCssVar('--info')}
             strokeWidth={2}
             dot={false}
-            onClick={(lineState) => {
-              if (!onDrillDown) return
-              const point = (lineState as { payload?: ChartPoint })?.payload
-              if (point) onDrillDown(point)
-            }}
+            onClick={(lineState) => drillDownFromSeriesPayload(onDrillDown, lineState)}
           />
         ) : null}
       </LineChart>
@@ -107,22 +113,14 @@ export function DashboardBar({ data, dataKey = 'value', secondaryDataKey, onDril
           dataKey={String(dataKey)}
           fill={getCssVar('--primary')}
           radius={[6, 6, 0, 0]}
-          onClick={(barState) => {
-            if (!onDrillDown) return
-            const point = (barState as { payload?: ChartPoint })?.payload
-            if (point) onDrillDown(point)
-          }}
+          onClick={(barState) => drillDownFromSeriesPayload(onDrillDown, barState)}
         />
         {secondaryDataKey ? (
           <Bar
             dataKey={String(secondaryDataKey)}
             fill={getCssVar('--info')}
             radius={[6, 6, 0, 0]}
-            onClick={(barState) => {
-              if (!onDrillDown) return
-              const point = (barState as { payload?: ChartPoint })?.payload
-              if (point) onDrillDown(point)
-            }}
+            onClick={(barState) => drillDownFromSeriesPayload(onDrillDown, barState)}
           />
         ) : null}
       </BarChart>
@@ -131,7 +129,7 @@ export function DashboardBar({ data, dataKey = 'value', secondaryDataKey, onDril
 }
 
 export function DashboardDonut({ data, onDrillDown }: { data: ChartPoint[]; onDrillDown?: (point: ChartPoint) => void }) {
-  const { tooltipStyle } = useChartTheme()
+  const { tooltipStyle, colors } = useChartTheme()
   const chartData = useMemo(() => data.map(point => ({ ...point, name: point.label, amount: point.value })), [data])
   return (
     <ResponsiveContainer width="100%" height={240}>
@@ -150,7 +148,7 @@ export function DashboardDonut({ data, onDrillDown }: { data: ChartPoint[]; onDr
           }}
         >
           {chartData.map((entry, index) => (
-            <Cell key={entry.key} fill={COLORS[index % COLORS.length]} />
+            <Cell key={entry.key} fill={colors[index % colors.length]} />
           ))}
         </Pie>
         <Tooltip formatter={(value) => typeof value === 'number' ? fmtCurrency(value) : String(value)} contentStyle={tooltipStyle} />

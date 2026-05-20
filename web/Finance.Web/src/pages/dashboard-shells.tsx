@@ -20,4 +20,3 @@ export function DashboardShellPage({ title, summary, plannedCharts }: DashboardS
     </div>
   )
 }
-

@@ -194,7 +194,7 @@ function cloneTaxonomy() {
   }));
 }
 
-function monthKey(date: string) {
+function getMonthKeyFromDate(date: string) {
   return date.slice(0, 7)
 }
 
@@ -288,6 +288,13 @@ function getDataQualityFlags(filteredTransactions: Transaction[], filteredAccoun
     syncNeeded: filteredAccounts.filter(a => a.type === 'manual_asset' || a.type === 'manual_liability').length,
   }
 }
+
+// Synthetic placeholder assumptions used for v1 mock charting.
+const MOCK_PRINCIPAL_SPLIT_RATIO = 0.65 // Approximate principal share for stacked payment visuals.
+const MOCK_INTEREST_SPLIT_RATIO = 0.35 // Complementary interest share for stacked payment visuals.
+const MOCK_INTEREST_PROJECTION_RATE = 0.15 // Annualized placeholder rate for synthetic interest cost trend.
+const MOCK_AVALANCHE_MULTIPLIER = 0.88 // Placeholder payoff efficiency multiplier for avalanche comparison.
+const MOCK_SNOWBALL_MULTIPLIER = 0.91 // Placeholder payoff efficiency multiplier for snowball comparison.
 
 class StubFinanceApiClient implements IFinanceApiClient {
   // Owners
@@ -479,7 +486,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const monthlyExpenseMap: Record<string, number> = {}
     const monthTxIds: Record<string, string[]> = {}
     filteredTransactions.forEach(tx => {
-      const key = monthKey(tx.date)
+      const key = getMonthKeyFromDate(tx.date)
       monthTxIds[key] = monthTxIds[key] ?? []
       monthTxIds[key].push(tx.id)
       if (tx.type === 'income') monthlyIncomeMap[key] = (monthlyIncomeMap[key] ?? 0) + tx.amount
@@ -554,7 +561,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     expenses.forEach(tx => {
       const category = tx.category ?? 'Uncategorized'
       byCategory[category] = (byCategory[category] ?? 0) + Math.abs(tx.amount)
-      const categoryMonthKey = `${monthKey(tx.date)} · ${category}`
+      const categoryMonthKey = `${getMonthKeyFromDate(tx.date)} · ${category}`
       byCategoryMonth[categoryMonthKey] = (byCategoryMonth[categoryMonthKey] ?? 0) + Math.abs(tx.amount)
       const merchant = tx.merchant ?? 'Unknown Merchant'
       byMerchant[merchant] = (byMerchant[merchant] ?? 0) + Math.abs(tx.amount)
@@ -566,7 +573,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     })
     const monthly = asChartPoints(
       Object.entries(byDay).reduce<Record<string, number>>((acc, [date, value]) => {
-        const key = monthKey(date)
+        const key = getMonthKeyFromDate(date)
         acc[key] = (acc[key] ?? 0) + value
         return acc
       }, {}),
@@ -592,9 +599,9 @@ class StubFinanceApiClient implements IFinanceApiClient {
 
   getNetWorthDashboard(filters?: DashboardFiltersInput) {
     const { filteredAccounts, filteredTransactions } = applyDashboardFilters(filters)
-    const months = Array.from(new Set(filteredTransactions.map(tx => monthKey(tx.date)))).sort((a, b) => a.localeCompare(b))
+    const months = Array.from(new Set(filteredTransactions.map(tx => getMonthKeyFromDate(tx.date)))).sort((a, b) => a.localeCompare(b))
     const netWorthOverTime = months.map(key => {
-      const monthTransactions = filteredTransactions.filter(tx => monthKey(tx.date) === key)
+      const monthTransactions = filteredTransactions.filter(tx => getMonthKeyFromDate(tx.date) === key)
       const monthNet = monthTransactions.reduce((sum, tx) => {
         if (tx.type === 'income') return sum + tx.amount
         if (tx.type === 'expense') return sum - Math.abs(tx.amount)
@@ -697,7 +704,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const monthlyDebt: Record<string, number> = {}
     filteredTransactions.forEach(tx => {
       if (tx.type === 'loan_payment' || (tx.type === 'expense' && tx.category === 'Housing')) {
-        const key = monthKey(tx.date)
+        const key = getMonthKeyFromDate(tx.date)
         monthlyDebt[key] = (monthlyDebt[key] ?? 0) + Math.abs(tx.amount)
       }
     })
@@ -707,19 +714,23 @@ class StubFinanceApiClient implements IFinanceApiClient {
     return delay<LoanDashboardData>({
       debtBalanceOverTime: asChartPoints(monthlyDebt),
       debtBreakdown: asChartPoints(debtByLoan),
-      principalVsInterest: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value]) => [key, value * 0.65]))).map((point) => ({
+      // Placeholder split ratios until amortization inputs are modeled in dashboard aggregate contracts.
+      principalVsInterest: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value]) => [key, value * MOCK_PRINCIPAL_SPLIT_RATIO]))).map((point) => ({
         ...point,
-        secondaryValue: monthlyDebt[point.key] * 0.35,
+        secondaryValue: monthlyDebt[point.key] * MOCK_INTEREST_SPLIT_RATIO,
       })),
+      // Placeholder linear payoff model in stub data until loan amortization schedule support is added.
       payoffTimeline: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, Math.max(0, debtTotal - ((index + 1) * value))]))),
-      interestCostProjection: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, value * (index + 1) * 0.15]))),
+      // Placeholder projection rate used for synthetic trending with stub data only.
+      interestCostProjection: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, value * (index + 1) * MOCK_INTEREST_PROJECTION_RATE]))),
       extraPaymentImpact: [
         { key: 'base', label: 'Base', value: debtTotal },
         { key: 'accelerated', label: 'Accelerated', value: debtTotal * 0.9 },
       ],
+      // Placeholder comparison multipliers for synthetic strategy visualization.
       debtStrategyComparison: [
-        { key: 'avalanche', label: 'Avalanche', value: debtTotal * 0.88 },
-        { key: 'snowball', label: 'Snowball', value: debtTotal * 0.91 },
+        { key: 'avalanche', label: 'Avalanche', value: debtTotal * MOCK_AVALANCHE_MULTIPLIER },
+        { key: 'snowball', label: 'Snowball', value: debtTotal * MOCK_SNOWBALL_MULTIPLIER },
       ],
       debtToAssetsRatio: [{ key: 'ratio', label: 'Debt / Assets', value: debtToAssets * 100 }],
       dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
