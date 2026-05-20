@@ -146,8 +146,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+        <h2 className="text-lg font-bold text-foreground sm:text-2xl">Dashboard</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={ownerId} onChange={e => setOwnerId(e.target.value)}>
             <option value="all">All Owners</option>
             {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
@@ -191,15 +191,15 @@ export function DashboardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="bg-card rounded-lg border border-border p-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-primary-subtle rounded-md">
               <DollarSign size={18} className="text-primary" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Net Worth</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{netWorth ? fmt(netWorth.netWorth) : '—'}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{netWorth ? fmt(netWorth.netWorth) : '—'}</p>
           {netWorth && (
             <p className="text-xs text-muted-foreground mt-1">
               Assets {fmt(netWorth.totalAssets)} · Liabilities {fmt(netWorth.totalLiabilities)}
@@ -207,24 +207,24 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-success-subtle rounded-md">
               <TrendingUp size={18} className="text-success" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Income (MTD)</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{cashFlow ? fmt(cashFlow.income) : '—'}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{cashFlow ? fmt(cashFlow.income) : '—'}</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-destructive-subtle rounded-md">
               <TrendingDown size={18} className="text-destructive" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Expenses (MTD)</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{cashFlow ? fmt(cashFlow.expenses) : '—'}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{cashFlow ? fmt(cashFlow.expenses) : '—'}</p>
           {cashFlow && (
             <p className={`text-xs mt-1 ${cashFlow.net >= 0 ? 'text-success' : 'text-destructive'}`}>
               Net: {fmt(cashFlow.net)}
@@ -232,69 +232,69 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-info-subtle rounded-md">
               <PiggyBank size={18} className="text-info" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Savings Rate</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{savingsRate.toFixed(1)}%</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{savingsRate.toFixed(1)}%</p>
           <p className="text-xs text-muted-foreground mt-1">Based on filtered income/expenses</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-secondary-subtle rounded-md">
               <Wallet size={18} className="text-secondary" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Budget Variance</span>
           </div>
-          <p className={`text-2xl font-bold ${budgetVariance.variance >= 0 ? 'text-success' : 'text-destructive'}`}>
+          <p className={`text-lg font-bold sm:text-2xl ${budgetVariance.variance >= 0 ? 'text-success' : 'text-destructive'}`}>
             {fmt(budgetVariance.variance)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">{fmt(budgetVariance.actual)} / {fmt(budgetVariance.planned)}</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-destructive-subtle rounded-md">
               <Landmark size={18} className="text-destructive" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Debt Payoff</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{fmt(debtBalance)}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{fmt(debtBalance)}</p>
           <p className="text-xs text-muted-foreground mt-1">Total current liabilities</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-primary-subtle rounded-md">
               <CircleDollarSign size={18} className="text-primary" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Investments</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{fmt(investmentBalance)}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{fmt(investmentBalance)}</p>
           <p className="text-xs text-muted-foreground mt-1">Brokerage + retirement balance</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-info-subtle rounded-md">
               <DollarSign size={18} className="text-info" />
             </div>
             <span className="text-sm font-medium text-muted-foreground">Tax Summary</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{fmt(taxRelevantBalance)}</p>
+          <p className="text-lg font-bold text-foreground sm:text-2xl">{fmt(taxRelevantBalance)}</p>
           <p className="text-xs text-muted-foreground mt-1">Tax-relevant account value</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <h3 className="text-base font-semibold text-foreground mb-4">Spending by Category</h3>
           {spending.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={spending}
@@ -322,10 +322,10 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-5">
+        <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
           <h3 className="text-base font-semibold text-foreground mb-4">Income Trends</h3>
           {incomeTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={220}>
               <LineChart data={incomeTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke={getCssVar('--border')} />
                 <XAxis dataKey="month" stroke={getCssVar('--muted-foreground')} />
@@ -342,7 +342,7 @@ export function DashboardPage() {
         <div className="bg-card rounded-lg border border-border p-5 xl:col-span-2">
           <h3 className="text-base font-semibold text-foreground mb-4">Spending MoM / YoY (available periods)</h3>
           {spendingByMonth.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={spendingByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke={getCssVar('--border')} />
                 <XAxis dataKey="month" stroke={getCssVar('--muted-foreground')} />

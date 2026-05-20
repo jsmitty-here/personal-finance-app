@@ -175,7 +175,7 @@ export function TransactionsPage() {
       <h2 className="text-2xl font-bold text-foreground">Transactions</h2>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-3 bg-card border border-border rounded-lg p-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Account</label>
           <select
@@ -237,12 +237,12 @@ export function TransactionsPage() {
         </div>
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
         {filteredTransactions.map(tx => {
           const ruleState = getRuleState(tx)
           const txAccount = accounts.find(a => a.id === tx.accountId)
           return (
-            <div key={tx.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+            <div key={tx.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{tx.description}</p>
@@ -265,7 +265,7 @@ export function TransactionsPage() {
       </div>
 
       {/* Table */}
-      <div className="hidden md:block bg-card rounded-lg border border-border overflow-x-auto">
+      <div className="hidden lg:block bg-card rounded-lg border border-border overflow-x-auto">
         <table className="min-w-full divide-y divide-border text-sm">
           <thead className="bg-muted">
             <tr>
@@ -334,7 +334,7 @@ export function TransactionsPage() {
       {editingTxId && (
         <div ref={overrideSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Manual override</h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value)}>
               {typeOptions.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
@@ -361,7 +361,7 @@ export function TransactionsPage() {
           </div>
           <div className="space-y-2">
             {splitRows.map((row, idx) => (
-              <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-3">
+              <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" type="number" placeholder={splitMode === 'percent' ? 'Percent' : 'Amount'} value={row.amount} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, amount: e.target.value } : current))} />
                 <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category" value={row.category} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, category: e.target.value } : current))} />
                 <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Tags (comma-separated)" value={row.tags} onChange={e => setSplitRows(prev => prev.map((current, i) => i === idx ? { ...current, tags: e.target.value } : current))} />
