@@ -335,7 +335,7 @@ export function TransactionsPage() {
         <div ref={overrideSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Manual override</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <select autoFocus className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value)}>
+            <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value)}>
               {typeOptions.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category" value={editCategory} onChange={e => setEditCategory(e.target.value)} />

@@ -256,7 +256,7 @@ export function AccountsPage() {
       {editingId && (
         <div ref={editSectionRef} className="bg-card rounded-lg border border-border p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Edit account metadata</h3>
-          <input autoFocus className="w-full border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={displayName} onChange={e => setDisplayName(e.target.value)} />
+          <input className="w-full border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={displayName} onChange={e => setDisplayName(e.target.value)} />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={includeInNetWorth} onChange={e => setIncludeInNetWorth(e.target.checked)} /> Net worth</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={includeInBudgeting} onChange={e => setIncludeInBudgeting(e.target.checked)} /> Budgeting</label>
