@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, RuleAction, RuleCondition, Transaction } from '@/lib/api-client'
@@ -9,6 +9,7 @@ import { CheckCircle, XCircle } from 'lucide-react'
 
 export function RulesPage() {
   const qc = useQueryClient()
+  const editorSectionRef = useRef<HTMLDivElement>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -119,6 +120,11 @@ export function RulesPage() {
     setActionValue(rule.actions[0]?.value ?? '')
   }
 
+  useEffect(() => {
+    if (!isCreateOpen && !editingRuleId) return
+    editorSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [editingRuleId, isCreateOpen])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -132,7 +138,7 @@ export function RulesPage() {
       </div>
 
       {(isCreateOpen || editingRuleId) && (
-        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <div ref={editorSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">{editingRuleId ? 'Edit Rule' : 'Create Rule'}</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={name} onChange={e => setName(e.target.value)} placeholder="Rule name" />
