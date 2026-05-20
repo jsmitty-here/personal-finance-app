@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, RuleAction, RuleCondition, Transaction } from '@/lib/api-client'
 import { ArrowDown, ArrowUp } from 'lucide-react'
+
+const RULE_TABLE_COLUMNS = ['Priority', 'Name', 'Conditions', 'Actions', 'Preview Impact', 'Active', 'Controls'] as const
 import { CheckCircle, XCircle } from 'lucide-react'
 
 export function RulesPage() {
@@ -204,23 +206,26 @@ export function RulesPage() {
         <table className="min-w-full divide-y divide-border text-sm">
           <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Priority</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Conditions</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Preview Impact</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Active</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Controls</th>
+              {RULE_TABLE_COLUMNS.map((column) => (
+                <th
+                  key={column}
+                  className={`px-4 py-3 font-medium text-muted-foreground ${
+                    column === 'Active' ? 'text-center' : column === 'Controls' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  {column}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
+                <td colSpan={RULE_TABLE_COLUMNS.length} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
               </tr>
             ) : sorted.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No rules defined.</td>
+                <td colSpan={RULE_TABLE_COLUMNS.length} className="px-4 py-6 text-center text-muted-foreground">No rules defined.</td>
               </tr>
             ) : (
               sorted.map((rule, index) => (

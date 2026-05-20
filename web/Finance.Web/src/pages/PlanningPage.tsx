@@ -53,10 +53,23 @@ export function PlanningPage() {
     const totalContributions = form.startingAmount + form.monthlyContribution * form.timeHorizonMonths
     const interestEarned = value - totalContributions
     const taxImpact = interestEarned * (form.taxRate / 100)
-    const adjustedForInflation = value / Math.pow(1 + form.inflation / 100, form.timeHorizonMonths / 12)
+    const presentValue = value / Math.pow(1 + form.inflation / 100, form.timeHorizonMonths / 12)
     const netBenefit = value - taxImpact
-    const breakEvenMonths = form.monthlyContribution > 0 ? Math.ceil(form.startingAmount / form.monthlyContribution) : 0
-    return { value, interestEarned, taxImpact, adjustedForInflation, netBenefit, breakEvenMonths }
+    let breakEvenMonths = 0
+    if (form.monthlyContribution > 0) {
+      let running = form.startingAmount
+      const monthlyContribution = form.monthlyContribution
+      const monthlyReturnForBreakEven = form.expectedReturn / 100 / 12
+      for (let month = 1; month <= form.timeHorizonMonths; month += 1) {
+        running = (running + monthlyContribution) * (1 + monthlyReturnForBreakEven)
+        const contributionsToDate = form.startingAmount + monthlyContribution * month
+        if (running >= contributionsToDate) {
+          breakEvenMonths = month
+          break
+        }
+      }
+    }
+    return { value, interestEarned, taxImpact, presentValue, netBenefit, breakEvenMonths }
   }, [form])
 
   const scenarioTypeLabel: Record<ScenarioType, string> = {
@@ -139,7 +152,7 @@ export function PlanningPage() {
             <p>Interest saved/earned: <span className="text-foreground font-semibold">{fmt(projection.interestEarned)}</span></p>
             <p>Tax impact: <span className="text-foreground font-semibold">{fmt(projection.taxImpact)}</span></p>
             <p>Net benefit comparison: <span className="text-foreground font-semibold">{fmt(projection.netBenefit)}</span></p>
-            <p>Inflation-adjusted ending value: <span className="text-foreground font-semibold">{fmt(projection.adjustedForInflation)}</span></p>
+            <p>Inflation-adjusted present value: <span className="text-foreground font-semibold">{fmt(projection.presentValue)}</span></p>
             <p>Break-even point: <span className="text-foreground font-semibold">{projection.breakEvenMonths} months</span></p>
             <p>Risk notes: {form.riskPreference === 'high' ? 'Higher volatility expected.' : form.riskPreference === 'medium' ? 'Moderate volatility expected.' : 'Lower volatility expected.'}</p>
           </div>

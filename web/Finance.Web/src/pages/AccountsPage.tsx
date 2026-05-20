@@ -19,6 +19,8 @@ const TYPE_LABELS: Record<Account['type'], string> = {
   manual_liability: 'Manual Liability',
 }
 
+const ACCOUNT_TABLE_COLUMNS = ['Account', 'Institution', 'Type', 'Connection Health', 'Balance', 'Actions'] as const
+
 export function AccountsPage() {
   const qc = useQueryClient()
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -198,18 +200,20 @@ export function AccountsPage() {
         <table className="min-w-full divide-y divide-border text-sm">
           <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Account</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Institution</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Connection Health</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Balance</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+              {ACCOUNT_TABLE_COLUMNS.map((column) => (
+                <th
+                  key={column}
+                  className={`px-4 py-3 font-medium text-muted-foreground ${column === 'Balance' || column === 'Actions' ? 'text-right' : 'text-left'}`}
+                >
+                  {column}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
+                <td colSpan={ACCOUNT_TABLE_COLUMNS.length} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
               </tr>
             ) : (
               filteredAccounts.map(account => (

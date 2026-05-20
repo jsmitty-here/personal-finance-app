@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/api-client'
 
+const TRANSACTION_TABLE_COLUMNS = ['Date', 'Description', 'Merchant', 'Account', 'Category', 'Tags', 'Type', 'Rule Match', 'Amount', 'Actions'] as const
+
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
@@ -247,26 +249,24 @@ export function TransactionsPage() {
         <table className="min-w-full divide-y divide-border text-sm">
           <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Merchant</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Account</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tags</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rule Match</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Amount</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+              {TRANSACTION_TABLE_COLUMNS.map((column) => (
+                <th
+                  key={column}
+                  className={`px-4 py-3 font-medium text-muted-foreground ${column === 'Amount' || column === 'Actions' ? 'text-right' : 'text-left'}`}
+                >
+                  {column}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
-                <td colSpan={10} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
+                <td colSpan={TRANSACTION_TABLE_COLUMNS.length} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
               </tr>
             ) : filteredTransactions.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-6 text-center text-muted-foreground">No transactions found.</td>
+                <td colSpan={TRANSACTION_TABLE_COLUMNS.length} className="px-4 py-6 text-center text-muted-foreground">No transactions found.</td>
               </tr>
             ) : (
               filteredTransactions.map(tx => {
