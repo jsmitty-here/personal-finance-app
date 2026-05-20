@@ -13,57 +13,57 @@ export function RulesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Categorization Rules</h2>
-        <span className="text-sm text-gray-500">{rules.length} rule{rules.length !== 1 ? 's' : ''}</span>
+        <h2 className="text-2xl font-bold text-foreground">Categorization Rules</h2>
+        <span className="text-sm text-muted-foreground">{rules.length} rule{rules.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Priority</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Conditions</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">Active</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Priority</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Conditions</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
+              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Active</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
               </tr>
             ) : sorted.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No rules defined.</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No rules defined.</td>
               </tr>
             ) : (
               sorted.map(rule => (
-                <tr key={rule.id} className="hover:bg-gray-50">
+                <tr key={rule.id} className="hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-subtle text-primary-subtle-foreground text-xs font-bold">
                       {rule.priority}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{rule.name}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 font-medium text-foreground">{rule.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
                     {rule.conditions.map((c, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 mr-1">
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 mr-1">
                         {c.field} {c.operator} "{c.value}"
                       </span>
                     ))}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-muted-foreground">
                     {rule.actions.map((a, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700 mr-1">
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 mr-1">
                         {a.field} → {a.value}
                       </span>
                     ))}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {rule.isActive
-                      ? <CheckCircle size={16} className="text-green-500 inline" />
-                      : <XCircle size={16} className="text-gray-400 inline" />
+                      ? <CheckCircle size={16} className="text-success inline" />
+                      : <XCircle size={16} className="text-muted-foreground inline" />
                     }
                   </td>
                 </tr>

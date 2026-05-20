@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -43,8 +44,8 @@ export function AppShell({ children }: AppShellProps) {
     cn(
       'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
       isActive
-        ? 'bg-indigo-50 text-indigo-700'
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+        ? 'bg-primary-subtle text-primary-subtle-foreground'
+        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
     )
 
   const handleMobileSidebarKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -83,28 +84,28 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="relative flex h-screen bg-gray-50">
+    <div className="relative flex h-screen bg-background">
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden bg-white border-r border-gray-200 md:flex md:flex-col transition-all duration-200',
+          'hidden bg-card border-r border-border md:flex md:flex-col transition-all duration-200',
           isDesktopCollapsed ? 'md:w-16' : 'md:w-56',
         )}
       >
-        <div className="px-3 py-4 border-b border-gray-200">
+        <div className="px-3 py-4 border-b border-border">
           <div className="flex items-start justify-between gap-2">
             {!isDesktopCollapsed ? (
               <div>
-                <h1 className="text-lg font-bold text-indigo-600">Finance</h1>
-                <p className="text-xs text-gray-500">Personal Finance App</p>
+                <h1 className="text-lg font-bold text-primary">Finance</h1>
+                <p className="text-xs text-muted-foreground">Personal Finance App</p>
               </div>
             ) : (
-              <h1 className="text-lg font-bold text-indigo-600">F</h1>
+              <h1 className="text-lg font-bold text-primary">F</h1>
             )}
             <button
               type="button"
               onClick={() => setIsDesktopCollapsed((value) => !value)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label={isDesktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isDesktopCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -119,19 +120,22 @@ export function AppShell({ children }: AppShellProps) {
             </NavLink>
           ))}
         </nav>
+        <div className="px-3 py-3 border-t border-border">
+          <ThemeToggle collapsed={isDesktopCollapsed} />
+        </div>
       </aside>
 
       {/* Mobile top bar */}
-      <header className="fixed top-0 left-0 right-0 z-20 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4 md:hidden">
+      <header className="fixed top-0 left-0 right-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden">
         <button
           type="button"
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label="Open sidebar"
         >
           <Menu size={18} />
         </button>
-        <h1 className="text-base font-semibold text-indigo-600">Finance</h1>
+        <h1 className="text-base font-semibold text-primary">Finance</h1>
       </header>
 
       {/* Mobile overlay sidebar */}
@@ -152,7 +156,7 @@ export function AppShell({ children }: AppShellProps) {
         <aside
           ref={mobileSidebarRef}
           className={cn(
-            'relative h-full w-72 max-w-[85vw] bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-200',
+            'relative h-full w-72 max-w-[85vw] bg-card border-r border-border flex flex-col transform transition-transform duration-200',
             isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           )}
           role="dialog"
@@ -160,16 +164,16 @@ export function AppShell({ children }: AppShellProps) {
           aria-label="Navigation"
           onKeyDown={handleMobileSidebarKeyDown}
         >
-          <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-2">
+          <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-2">
             <div>
-              <h1 className="text-lg font-bold text-indigo-600">Finance</h1>
-              <p className="text-xs text-gray-500">Personal Finance App</p>
+              <h1 className="text-lg font-bold text-primary">Finance</h1>
+              <p className="text-xs text-muted-foreground">Personal Finance App</p>
             </div>
             <button
               ref={mobileCloseButtonRef}
               type="button"
               onClick={() => setIsMobileSidebarOpen(false)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label="Close sidebar"
             >
               <X size={16} />
@@ -188,6 +192,9 @@ export function AppShell({ children }: AppShellProps) {
               </NavLink>
             ))}
           </nav>
+          <div className="px-3 py-3 border-t border-border">
+            <ThemeToggle />
+          </div>
         </aside>
       </div>
 

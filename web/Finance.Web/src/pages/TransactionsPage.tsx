@@ -30,14 +30,14 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Transactions</h2>
+      <h2 className="text-2xl font-bold text-foreground">Transactions</h2>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 bg-white border border-gray-200 rounded-lg p-4">
+      <div className="flex flex-wrap gap-3 bg-card border border-border rounded-lg p-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Account</label>
+          <label className="text-xs font-medium text-muted-foreground">Account</label>
           <select
-            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white"
+            className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground"
             value={accountFilter}
             onChange={e => setAccountFilter(e.target.value)}
           >
@@ -48,19 +48,19 @@ export function TransactionsPage() {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">From</label>
+          <label className="text-xs font-medium text-muted-foreground">From</label>
           <input
             type="date"
-            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+            className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">To</label>
+          <label className="text-xs font-medium text-muted-foreground">To</label>
           <input
             type="date"
-            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+            className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
           />
@@ -68,46 +68,46 @@ export function TransactionsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Description</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Merchant</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Account</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Category</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Merchant</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Account</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Amount</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">Loading…</td>
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No transactions found.</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No transactions found.</td>
               </tr>
             ) : (
               transactions.map(tx => (
-                <tr key={tx.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{tx.date}</td>
-                  <td className="px-4 py-3 text-gray-900 max-w-xs truncate">{tx.description}</td>
-                  <td className="px-4 py-3 text-gray-600">{tx.merchant ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{accountMap[tx.accountId] ?? tx.accountId}</td>
-                  <td className="px-4 py-3 text-gray-600">{tx.category ?? '—'}{tx.subcategory ? ` / ${tx.subcategory}` : ''}</td>
+                <tr key={tx.id} className="hover:bg-muted/50 transition-colors">
+                  <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{tx.date}</td>
+                  <td className="px-4 py-3 text-foreground max-w-xs truncate">{tx.description}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{tx.merchant ?? '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{accountMap[tx.accountId] ?? tx.accountId}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{tx.category ?? '—'}{tx.subcategory ? ` / ${tx.subcategory}` : ''}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      tx.type === 'income' ? 'bg-green-100 text-green-700' :
-                      tx.type === 'expense' ? 'bg-red-100 text-red-700' :
-                      'bg-gray-100 text-gray-700'
+                      tx.type === 'income' ? 'bg-success-subtle text-success-subtle-foreground' :
+                      tx.type === 'expense' ? 'bg-destructive-subtle text-destructive-subtle-foreground' :
+                      'bg-muted text-muted-foreground'
                     }`}>
                       {tx.type}
                     </span>
                   </td>
-                  <td className={`px-4 py-3 text-right font-medium ${tx.amount >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                  <td className={`px-4 py-3 text-right font-medium ${tx.amount >= 0 ? 'text-success' : 'text-destructive'}`}>
                     {fmt(tx.amount)}
                   </td>
                 </tr>
