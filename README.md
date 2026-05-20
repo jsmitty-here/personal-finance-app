@@ -1,6 +1,6 @@
 # Personal Finance App
 
-Personal Finance App is a household-focused finance platform plan for tracking, understanding, and optimizing finances across linked and manual accounts.
+Personal Finance App is a household-focused finance platform for tracking, understanding, and optimizing finances across linked and manual accounts.
 
 ## Current Status
 
