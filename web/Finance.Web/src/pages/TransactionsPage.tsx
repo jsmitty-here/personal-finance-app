@@ -5,8 +5,22 @@ import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/ap
 
 const TRANSACTION_TABLE_COLUMNS = ['Date', 'Description', 'Merchant', 'Account', 'Category', 'Tags', 'Type', 'Rule Match', 'Amount', 'Actions'] as const
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  function fmt(n: number) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  }
+
+function formatCategoryPath(
+  categoryIconByName: Record<string, string>,
+  subcategoryIconByName: Record<string, string>,
+  category?: string,
+  subcategory?: string,
+  subSubcategory?: string,
+) {
+  if (!category) return '—'
+  const categoryLabel = `${categoryIconByName[category] ? `${categoryIconByName[category]} ` : ''}${category}`
+  const subcategoryLabel = subcategory ? `${subcategoryIconByName[subcategory] ? `${subcategoryIconByName[subcategory]} ` : ''}${subcategory}` : ''
+  const subSubcategoryLabel = subSubcategory ?? ''
+  return [categoryLabel, subcategoryLabel, subSubcategoryLabel].filter(Boolean).join(' / ')
 }
 
 export function TransactionsPage() {
@@ -310,7 +324,7 @@ export function TransactionsPage() {
                 <span className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(tx.amount)}</span>
               </div>
               <p className="text-xs text-muted-foreground">Merchant: {tx.merchant ?? '—'} {tx.isManualOverride ? '· Manual override' : ''}</p>
-              <p className="text-xs text-muted-foreground">Category: {tx.category ? `${categoryIconByName[tx.category] ? `${categoryIconByName[tx.category]} ` : ''}${tx.category}` : '—'}{tx.subcategory ? ` / ${subcategoryIconByName[tx.subcategory] ? `${subcategoryIconByName[tx.subcategory]} ` : ''}${tx.subcategory}` : ''}</p>
+              <p className="text-xs text-muted-foreground">Category: {formatCategoryPath(categoryIconByName, subcategoryIconByName, tx.category, tx.subcategory, undefined)}</p>
               <p className="text-xs text-muted-foreground">Tags: {tx.tags.length ? tx.tags.join(', ') : 'None'}</p>
               <p className="text-xs text-muted-foreground">Ownership: {(tx.ownershipOverride ?? txAccount?.ownershipAllocation ?? []).map(o => `${ownerById[o.ownerId] ?? o.ownerId} ${o.percentage}%`).join(', ') || 'N/A'}</p>
               <p className="text-xs text-muted-foreground">Rule: {ruleState.winner ? `${ruleState.winner.name} (won)` : 'No winner'} · {ruleState.matched.length} matched</p>
@@ -356,7 +370,7 @@ export function TransactionsPage() {
                     <td className="px-4 py-3 text-foreground max-w-xs truncate">{tx.description}{tx.isManualOverride ? <span className="ml-2 text-[10px] text-info">manual</span> : null}</td>
                     <td className="px-4 py-3 text-muted-foreground">{tx.merchant ?? '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{accountMap[tx.accountId] ?? tx.accountId}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{tx.category ? `${categoryIconByName[tx.category] ? `${categoryIconByName[tx.category]} ` : ''}${tx.category}` : '—'}{tx.subcategory ? ` / ${subcategoryIconByName[tx.subcategory] ? `${subcategoryIconByName[tx.subcategory]} ` : ''}${tx.subcategory}` : ''}{tx.subSubcategory ? ` / ${tx.subSubcategory}` : ''}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatCategoryPath(categoryIconByName, subcategoryIconByName, tx.category, tx.subcategory, tx.subSubcategory)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{tx.tags.length ? tx.tags.join(', ') : '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${

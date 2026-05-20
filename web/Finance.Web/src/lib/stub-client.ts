@@ -145,15 +145,12 @@ class StubFinanceApiClient implements IFinanceApiClient {
   }
   updateCategory(categoryId: string, category: { name?: string; icon?: string }) {
     const idx = categoryTaxonomy.findIndex(x => x.id === categoryId);
-    if (idx >= 0) {
-      categoryTaxonomy[idx] = {
-        ...categoryTaxonomy[idx],
-        ...category,
-      };
-    }
-    const fallback = idx >= 0
-      ? categoryTaxonomy[idx]
-      : (categoryTaxonomy[0] ?? { id: makeId(), name: category.name ?? 'Uncategorized', icon: category.icon ?? '🏷️', subcategories: [] });
+    if (idx < 0) throw new Error(`Category ${categoryId} not found`);
+    categoryTaxonomy[idx] = {
+      ...categoryTaxonomy[idx],
+      ...category,
+    };
+    const fallback = categoryTaxonomy[idx];
     return delay({
       ...fallback,
       subcategories: [...fallback.subcategories],
@@ -167,16 +164,14 @@ class StubFinanceApiClient implements IFinanceApiClient {
   }
   updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string }) {
     const category = categoryTaxonomy.find(x => x.id === categoryId);
+    if (!category) throw new Error(`Category ${categoryId} not found`);
     const idx = category?.subcategories.findIndex(x => x.id === subcategoryId) ?? -1;
-    if (category && idx >= 0) {
-      category.subcategories[idx] = {
-        ...category.subcategories[idx],
-        ...subcategory,
-      };
-    }
-    const fallback = idx >= 0
-      ? (category?.subcategories[idx] ?? { id: subcategoryId, name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' })
-      : (category?.subcategories[0] ?? { id: makeId(), name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' });
+    if (idx < 0) throw new Error(`Subcategory ${subcategoryId} not found`);
+    category.subcategories[idx] = {
+      ...category.subcategories[idx],
+      ...subcategory,
+    };
+    const fallback = category.subcategories[idx];
     return delay({ ...fallback });
   }
 
