@@ -206,6 +206,18 @@ export interface LoanDashboardData {
   dataQuality: DataQualityFlags;
 }
 
+export interface InvestmentsDashboardData {
+  portfolioValueTrend: ChartPoint[];
+  assetAllocation: ChartPoint[];
+  accountAllocation: ChartPoint[];
+  contributionsOverTime: ChartPoint[];
+  investmentReturnEstimate: ChartPoint[];
+  holdingsConcentration: ChartPoint[];
+  retirementAccountTrend: ChartPoint[];
+  taxableVsTaxAdvantagedSplit: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
 export interface DashboardFiltersInput {
   period?: 'current-month' | 'trailing-3-months' | 'trailing-12-months' | 'ytd' | 'custom';
   dateFrom?: string;
@@ -269,4 +281,5 @@ export interface IFinanceApiClient {
   getNetWorthDashboard(filters?: DashboardFiltersInput): Promise<NetWorthDashboardData>;
   getBudgetDashboard(filters?: DashboardFiltersInput): Promise<BudgetDashboardData>;
   getLoanDashboard(filters?: DashboardFiltersInput): Promise<LoanDashboardData>;
+  getInvestmentsDashboard(filters?: DashboardFiltersInput): Promise<InvestmentsDashboardData>;
 }

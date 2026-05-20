@@ -110,12 +110,20 @@ AI-generated charts should be explainable and traceable back to source data.
   - Debt strategy comparison
   - Debt-to-assets ratio
 
-### Phase 2 Routes (Deferred Shells Added)
+### Phase 2 Routes (In Progress)
 
-- `/dashboard/investments`
-- `/dashboard/income`
-- `/dashboard/taxes`
-- `/dashboard/planning`
-- `/dashboard/review`
+- `/dashboard/investments` (implemented)
+  - Portfolio value trend
+  - Asset allocation
+  - Account allocation
+  - Contributions over time
+  - Investment return estimate
+  - Holdings concentration
+  - Retirement account trend
+  - Taxable vs tax-advantaged split
+- `/dashboard/income` (deferred shell)
+- `/dashboard/taxes` (deferred shell)
+- `/dashboard/planning` (deferred shell)
+- `/dashboard/review` (deferred shell)
 
-These routes are intentionally staged after phase 1 and currently provide shell pages that define the planned chart sets.
+Phase 2 remains intentionally staged after phase 1; non-investment routes still provide shell pages that define planned chart sets.

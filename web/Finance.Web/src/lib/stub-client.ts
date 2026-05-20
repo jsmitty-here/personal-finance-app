@@ -4,7 +4,7 @@ import type {
   TransactionSplit, CategoryDefinition, SubcategoryDefinition,
   DashboardFiltersInput, DataQualityFlags, OverviewDashboardData,
   SpendingDashboardData, NetWorthDashboardData, BudgetDashboardData,
-  LoanDashboardData, ChartPoint,
+  LoanDashboardData, InvestmentsDashboardData, ChartPoint,
 } from './api-client';
 
 // --- Stub Data ---
@@ -733,6 +733,129 @@ class StubFinanceApiClient implements IFinanceApiClient {
         { key: 'snowball', label: 'Snowball', value: debtTotal * MOCK_SNOWBALL_MULTIPLIER },
       ],
       debtToAssetsRatio: [{ key: 'ratio', label: 'Debt / Assets', value: debtToAssets * 100 }],
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getInvestmentsDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const investmentAccounts = filteredAccounts.filter(a => a.type === 'brokerage' || a.type === 'retirement')
+    const investmentTx = filteredTransactions.filter(tx => tx.type === 'investment')
+    const monthlyContributionsMap: Record<string, number> = {}
+    const contributionTxIdsByMonth: Record<string, string[]> = {}
+    investmentTx.forEach(tx => {
+      const month = getMonthKeyFromDate(tx.date)
+      monthlyContributionsMap[month] = (monthlyContributionsMap[month] ?? 0) + Math.abs(tx.amount)
+      contributionTxIdsByMonth[month] = contributionTxIdsByMonth[month] ?? []
+      contributionTxIdsByMonth[month].push(tx.id)
+    })
+
+    const contributionPoints = asChartPoints(monthlyContributionsMap, contributionTxIdsByMonth)
+    let runningContributionTotal = 0
+    const latestPortfolioValue = investmentAccounts.reduce((sum, account) => sum + account.balance, 0)
+    const portfolioValueTrend = contributionPoints.map((point, index, arr) => {
+      runningContributionTotal += point.value
+      const estimatedValue = arr.length > 0
+        ? (latestPortfolioValue * ((index + 1) / arr.length))
+        : latestPortfolioValue
+      return {
+        ...point,
+        value: Math.round(estimatedValue * 100) / 100,
+      }
+    })
+
+    const returnEstimateTrend = contributionPoints.map(point => {
+      runningContributionTotal = runningContributionTotal + 0
+      const contributionToDate = contributionPoints
+        .filter(p => p.key <= point.key)
+        .reduce((sum, p) => sum + p.value, 0)
+      const proportionalValue = latestPortfolioValue * (contributionToDate / Math.max(contributionPoints.reduce((sum, p) => sum + p.value, 0), 1))
+      return {
+        key: point.key,
+        label: point.label,
+        value: Math.round((proportionalValue - contributionToDate) * 100) / 100,
+        drilldown: point.drilldown,
+      }
+    })
+
+    const assetAllocation: Record<string, number> = {}
+    investmentAccounts.forEach(account => {
+      if (account.type === 'retirement') {
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * 0.7)
+        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * 0.25)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * 0.05)
+      } else {
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * 0.82)
+        assetAllocation.Alternatives = (assetAllocation.Alternatives ?? 0) + (account.balance * 0.1)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * 0.08)
+      }
+    })
+
+    const accountAllocation = investmentAccounts.map(account => ({
+      key: account.id,
+      label: account.displayName,
+      value: account.balance,
+      drilldown: { accountIds: [account.id] },
+    }))
+
+    const holdingsConcentration = investmentAccounts.flatMap(account => {
+      const topHoldingShare = account.type === 'retirement' ? 0.19 : 0.24
+      const secondHoldingShare = account.type === 'retirement' ? 0.13 : 0.18
+      const topHolding = Math.round(account.balance * topHoldingShare * 100) / 100
+      const secondHolding = Math.round(account.balance * secondHoldingShare * 100) / 100
+      return [
+        {
+          key: `${account.id}-h1`,
+          label: `${account.displayName} · Top Holding`,
+          value: topHolding,
+          drilldown: { accountIds: [account.id] },
+        },
+        {
+          key: `${account.id}-h2`,
+          label: `${account.displayName} · Next Holding`,
+          value: secondHolding,
+          drilldown: { accountIds: [account.id] },
+        },
+      ]
+    }).sort((a, b) => b.value - a.value)
+
+    const retirementAccounts = investmentAccounts.filter(account => account.type === 'retirement')
+    const retirementTxByMonth: Record<string, number> = {}
+    const retirementTxIdsByMonth: Record<string, string[]> = {}
+    filteredTransactions
+      .filter(tx => tx.type === 'investment' && retirementAccounts.some(account => account.id === tx.accountId))
+      .forEach(tx => {
+        const month = getMonthKeyFromDate(tx.date)
+        retirementTxByMonth[month] = (retirementTxByMonth[month] ?? 0) + Math.abs(tx.amount)
+        retirementTxIdsByMonth[month] = retirementTxIdsByMonth[month] ?? []
+        retirementTxIdsByMonth[month].push(tx.id)
+      })
+    const retirementBaseBalance = retirementAccounts.reduce((sum, account) => sum + account.balance, 0)
+    const retirementContributionSeries = asChartPoints(retirementTxByMonth, retirementTxIdsByMonth)
+    let retirementRunning = retirementBaseBalance - retirementContributionSeries.reduce((sum, point) => sum + point.value, 0)
+    const retirementAccountTrend = retirementContributionSeries.map(point => {
+      retirementRunning += point.value
+      return {
+        ...point,
+        value: Math.round(retirementRunning * 100) / 100,
+      }
+    })
+
+    const taxableTotal = investmentAccounts.filter(a => a.type === 'brokerage').reduce((sum, account) => sum + account.balance, 0)
+    const taxAdvantagedTotal = investmentAccounts.filter(a => a.type === 'retirement').reduce((sum, account) => sum + account.balance, 0)
+
+    return delay<InvestmentsDashboardData>({
+      portfolioValueTrend,
+      assetAllocation: asChartPoints(assetAllocation),
+      accountAllocation,
+      contributionsOverTime: contributionPoints,
+      investmentReturnEstimate: returnEstimateTrend,
+      holdingsConcentration,
+      retirementAccountTrend,
+      taxableVsTaxAdvantagedSplit: [
+        { key: 'taxable', label: 'Taxable', value: taxableTotal, drilldown: { accountIds: investmentAccounts.filter(a => a.type === 'brokerage').map(a => a.id) } },
+        { key: 'tax-advantaged', label: 'Tax-Advantaged', value: taxAdvantagedTotal, drilldown: { accountIds: investmentAccounts.filter(a => a.type === 'retirement').map(a => a.id) } },
+      ],
       dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
     })
   }
