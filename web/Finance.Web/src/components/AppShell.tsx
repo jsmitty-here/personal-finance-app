@@ -158,7 +158,6 @@ export function AppShell({ children }: AppShellProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation"
-          tabIndex={-1}
           onKeyDown={handleMobileSidebarKeyDown}
         >
           <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-2">
