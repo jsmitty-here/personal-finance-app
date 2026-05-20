@@ -53,7 +53,9 @@ function formatDate(date: Date) {
 
 function monthStartOffset(monthsAgo: number) {
   const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1))
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  monthStart.setUTCMonth(monthStart.getUTCMonth() - monthsAgo)
+  return monthStart
 }
 
 function getMonthlyActual(transactions: Transaction[], monthKey: string, category: string) {
@@ -63,10 +65,12 @@ function getMonthlyActual(transactions: Transaction[], monthKey: string, categor
 }
 
 function simulateInvestmentBalance(start: number, monthlyContribution: number, months: number, annualReturn: number, monthlyJitter: number, random: () => number) {
+  const MIN_MONTHLY_RETURN = -0.04
+  const MAX_MONTHLY_RETURN = 0.06
   let balance = start
   const monthlyBaseReturn = Math.pow(1 + annualReturn, 1 / 12) - 1
   for (let i = 0; i < months; i += 1) {
-    const monthlyReturn = clamp(monthlyBaseReturn + (random() * 2 - 1) * monthlyJitter, -0.04, 0.06)
+    const monthlyReturn = clamp(monthlyBaseReturn + (random() * 2 - 1) * monthlyJitter, MIN_MONTHLY_RETURN, MAX_MONTHLY_RETURN)
     balance = (balance + monthlyContribution) * (1 + monthlyReturn)
   }
   return Math.round(balance * 100) / 100
