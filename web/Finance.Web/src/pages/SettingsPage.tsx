@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import { Pencil, Check, X } from 'lucide-react'
@@ -9,10 +9,20 @@ export function SettingsPage() {
   const [editName, setEditName] = useState<string>('')
   const [editColor, setEditColor] = useState<string>('#6366f1')
   const [ownershipHistoryMode, setOwnershipHistoryMode] = useState<'point-in-time' | 'historical-retrofit'>('point-in-time')
+  const [categoryEdits, setCategoryEdits] = useState<Record<string, { name: string; icon: string }>>({})
+  const [subcategoryEdits, setSubcategoryEdits] = useState<Record<string, { name: string; icon: string }>>({})
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
+  const [newSubcategoryByCategory, setNewSubcategoryByCategory] = useState<Record<string, { name: string; icon: string }>>({})
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ['owners'],
     queryFn: () => apiClient.getOwners(),
+  })
+
+  const { data: categoryTaxonomy = [], isLoading: isLoadingTaxonomy } = useQuery({
+    queryKey: ['category-taxonomy'],
+    queryFn: () => apiClient.getCategoryTaxonomy(),
   })
 
   const updateMutation = useMutation({
@@ -22,6 +32,41 @@ export function SettingsPage() {
       setEditingId(null)
     },
   })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: ({ name, icon }: { name: string; icon: string }) => apiClient.createCategory({ name, icon }),
+    onSuccess: () => {
+      setNewCategoryName('')
+      setNewCategoryIcon('🏷️')
+      void qc.invalidateQueries({ queryKey: ['category-taxonomy'] })
+    },
+  })
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ categoryId, name, icon }: { categoryId: string; name?: string; icon?: string }) => apiClient.updateCategory(categoryId, { name, icon }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
+  })
+
+  const createSubcategoryMutation = useMutation({
+    mutationFn: ({ categoryId, name, icon }: { categoryId: string; name: string; icon: string }) => apiClient.createSubcategory(categoryId, { name, icon }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
+  })
+
+  const updateSubcategoryMutation = useMutation({
+    mutationFn: ({ categoryId, subcategoryId, name, icon }: { categoryId: string; subcategoryId: string; name?: string; icon?: string }) => apiClient.updateSubcategory(categoryId, subcategoryId, { name, icon }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
+  })
+
+  const categoryDrafts = useMemo(
+    () =>
+      Object.fromEntries(
+        categoryTaxonomy.map(category => [
+          category.id,
+          categoryEdits[category.id] ?? { name: category.name, icon: category.icon },
+        ]),
+      ),
+    [categoryEdits, categoryTaxonomy],
+  )
 
   function startEdit(id: string, name: string) {
     setEditingId(id)
@@ -39,6 +84,29 @@ export function SettingsPage() {
     if (editName.trim()) {
       updateMutation.mutate({ id, name: editName.trim(), color: editColor })
     }
+  }
+
+  function updateCategoryDraft(categoryId: string, field: 'name' | 'icon', value: string) {
+    setCategoryEdits(prev => {
+      const current = prev[categoryId] ?? {
+        name: categoryTaxonomy.find(category => category.id === categoryId)?.name ?? '',
+        icon: categoryTaxonomy.find(category => category.id === categoryId)?.icon ?? '🏷️',
+      }
+      return { ...prev, [categoryId]: { ...current, [field]: value } }
+    })
+  }
+
+  function subcategoryDraftKey(categoryId: string, subcategoryId: string) {
+    return `${categoryId}:${subcategoryId}`
+  }
+
+  function updateSubcategoryDraft(categoryId: string, subcategoryId: string, field: 'name' | 'icon', value: string) {
+    const key = subcategoryDraftKey(categoryId, subcategoryId)
+    setSubcategoryEdits(prev => {
+      const source = categoryTaxonomy.find(category => category.id === categoryId)?.subcategories.find(sub => sub.id === subcategoryId)
+      const current = prev[key] ?? { name: source?.name ?? '', icon: source?.icon ?? '📂' }
+      return { ...prev, [key]: { ...current, [field]: value } }
+    })
   }
 
   return (
@@ -156,13 +224,57 @@ export function SettingsPage() {
 
         <div className="bg-card rounded-lg border border-border p-5 space-y-3">
           <h3 className="font-semibold text-foreground">Category Taxonomy</h3>
-          <p className="text-sm text-muted-foreground">System-seeded taxonomy view and management scaffold.</p>
-          <div className="rounded-md border border-border p-3 text-xs text-muted-foreground">
-            Food / Groceries / Organic
-            <br />
-            Entertainment / Streaming
-            <br />
-            Utilities / Electric
+          <p className="text-sm text-muted-foreground">Choose categories and subcategories from dropdowns with icon labels, add new ones, and customize icon choices.</p>
+          <div className="space-y-4">
+            {isLoadingTaxonomy ? (
+              <p className="text-sm text-muted-foreground">Loading taxonomy…</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground sm:col-span-2" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+                  <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Icon (emoji)" value={newCategoryIcon} onChange={e => setNewCategoryIcon(e.target.value)} />
+                </div>
+                <div className="flex justify-end">
+                  <button type="button" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!newCategoryName.trim()} onClick={() => createCategoryMutation.mutate({ name: newCategoryName.trim(), icon: newCategoryIcon.trim() || '🏷️' })}>Add category</button>
+                </div>
+                <div className="space-y-3">
+                  {categoryTaxonomy.map(category => {
+                    const draft = categoryDrafts[category.id] ?? { name: category.name, icon: category.icon }
+                    const newSubcategory = newSubcategoryByCategory[category.id] ?? { name: '', icon: '📂' }
+                    return (
+                      <div key={category.id} className="rounded-md border border-border p-3 space-y-3">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
+                          <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" value={draft.icon} onChange={e => updateCategoryDraft(category.id, 'icon', e.target.value)} />
+                          <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={draft.name} onChange={e => updateCategoryDraft(category.id, 'name', e.target.value)} />
+                          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!draft.name.trim()} onClick={() => updateCategoryMutation.mutate({ categoryId: category.id, name: draft.name.trim(), icon: draft.icon.trim() || '🏷️' })}>Save</button>
+                        </div>
+                        <div className="space-y-2">
+                          {category.subcategories.map(subcategory => {
+                            const subKey = subcategoryDraftKey(category.id, subcategory.id)
+                            const subDraft = subcategoryEdits[subKey] ?? { name: subcategory.name, icon: subcategory.icon }
+                            return (
+                              <div key={subcategory.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
+                                <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" value={subDraft.icon} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'icon', e.target.value)} />
+                                <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={subDraft.name} onChange={e => updateSubcategoryDraft(category.id, subcategory.id, 'name', e.target.value)} />
+                                <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!subDraft.name.trim()} onClick={() => updateSubcategoryMutation.mutate({ categoryId: category.id, subcategoryId: subcategory.id, name: subDraft.name.trim(), icon: subDraft.icon.trim() || '📂' })}>Save</button>
+                              </div>
+                            )
+                          })}
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[80px_1fr_auto]">
+                            <input className="border border-input rounded-md px-2 py-2 text-sm bg-card text-foreground" placeholder="📂" value={newSubcategory.icon} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, icon: e.target.value } }))} />
+                            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder={`Add subcategory to ${category.name}`} value={newSubcategory.name} onChange={e => setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { ...newSubcategory, name: e.target.value } }))} />
+                            <button type="button" className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50" disabled={!newSubcategory.name.trim()} onClick={() => {
+                              createSubcategoryMutation.mutate({ categoryId: category.id, name: newSubcategory.name.trim(), icon: newSubcategory.icon.trim() || '📂' })
+                              setNewSubcategoryByCategory(prev => ({ ...prev, [category.id]: { name: '', icon: '📂' } }))
+                            }}>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

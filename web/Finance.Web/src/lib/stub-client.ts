@@ -1,7 +1,7 @@
 import type {
   IFinanceApiClient, Owner, Account, Transaction, CategorizationRule,
   Budget, NetWorthSummary, CashFlowSummary, SpendingByCategory,
-  TransactionSplit,
+  TransactionSplit, CategoryDefinition, SubcategoryDefinition,
 } from './api-client';
 
 // --- Stub Data ---
@@ -35,6 +35,19 @@ const transactions: Transaction[] = [
   { id: 't6', accountId: 'a1', date: '2026-05-10', amount: -120.00, description: 'ELECTRIC BILL', merchant: 'Con Edison', type: 'expense', category: 'Utilities', subcategory: 'Electric', tags: [], isManualOverride: false },
 ];
 
+const categoryTaxonomy: CategoryDefinition[] = [
+  { id: 'cat-food', name: 'Food', icon: '🍽️', subcategories: [{ id: 'sub-food-groceries', name: 'Groceries', icon: '🛒' }, { id: 'sub-food-dining', name: 'Dining Out', icon: '🍜' }, { id: 'sub-food-coffee', name: 'Coffee', icon: '☕' }] },
+  { id: 'cat-housing', name: 'Housing', icon: '🏠', subcategories: [{ id: 'sub-housing-rent', name: 'Rent / Mortgage', icon: '🏡' }, { id: 'sub-housing-maintenance', name: 'Maintenance', icon: '🧰' }, { id: 'sub-housing-furnishings', name: 'Furnishings', icon: '🛋️' }] },
+  { id: 'cat-utilities', name: 'Utilities', icon: '💡', subcategories: [{ id: 'sub-utilities-electric', name: 'Electric', icon: '⚡' }, { id: 'sub-utilities-gas', name: 'Gas', icon: '🔥' }, { id: 'sub-utilities-water', name: 'Water', icon: '🚿' }, { id: 'sub-utilities-internet', name: 'Internet', icon: '🌐' }] },
+  { id: 'cat-transport', name: 'Transport', icon: '🚗', subcategories: [{ id: 'sub-transport-fuel', name: 'Fuel', icon: '⛽' }, { id: 'sub-transport-transit', name: 'Public Transit', icon: '🚆' }, { id: 'sub-transport-ride', name: 'Rideshare', icon: '🚕' }] },
+  { id: 'cat-health', name: 'Health', icon: '🩺', subcategories: [{ id: 'sub-health-medical', name: 'Medical', icon: '🧑‍⚕️' }, { id: 'sub-health-pharmacy', name: 'Pharmacy', icon: '💊' }, { id: 'sub-health-fitness', name: 'Fitness', icon: '🏋️' }] },
+  { id: 'cat-entertainment', name: 'Entertainment', icon: '🎬', subcategories: [{ id: 'sub-entertainment-streaming', name: 'Streaming', icon: '📺' }, { id: 'sub-entertainment-games', name: 'Games', icon: '🎮' }, { id: 'sub-entertainment-events', name: 'Events', icon: '🎟️' }] },
+  { id: 'cat-personal', name: 'Personal', icon: '🧍', subcategories: [{ id: 'sub-personal-clothing', name: 'Clothing', icon: '👕' }, { id: 'sub-personal-care', name: 'Personal Care', icon: '🧴' }, { id: 'sub-personal-other', name: 'Other', icon: '📦' }] },
+  { id: 'cat-household', name: 'Household', icon: '🧹', subcategories: [{ id: 'sub-household-supplies', name: 'Supplies', icon: '🧼' }, { id: 'sub-household-pets', name: 'Pets', icon: '🐾' }] },
+  { id: 'cat-income', name: 'Income', icon: '💰', subcategories: [{ id: 'sub-income-salary', name: 'Salary', icon: '💵' }, { id: 'sub-income-bonus', name: 'Bonus', icon: '🎉' }, { id: 'sub-income-interest', name: 'Interest', icon: '🏦' }] },
+  { id: 'cat-savings', name: 'Savings & Investments', icon: '📈', subcategories: [{ id: 'sub-savings-brokerage', name: 'Brokerage', icon: '📊' }, { id: 'sub-savings-retirement', name: 'Retirement', icon: '🧓' }, { id: 'sub-savings-emergency', name: 'Emergency Fund', icon: '🛟' }] },
+];
+
 const rules: CategorizationRule[] = [
   { id: 'r1', name: 'Grocery Stores', priority: 1, isActive: true, conditions: [{ field: 'merchant', operator: 'contains', value: 'WHOLEFDS' }], actions: [{ field: 'category', value: 'Food' }, { field: 'subcategory', value: 'Groceries' }] },
   { id: 'r2', name: 'Streaming Services', priority: 2, isActive: true, conditions: [{ field: 'tags', operator: 'contains', value: 'Subscription' }], actions: [{ field: 'category', value: 'Entertainment' }, { field: 'subcategory', value: 'Streaming' }] },
@@ -56,6 +69,13 @@ function delay<T>(val: T): Promise<T> {
 
 function makeId(): string {
   return Math.random().toString(36).slice(2);
+}
+
+function cloneTaxonomy() {
+  return categoryTaxonomy.map(category => ({
+    ...category,
+    subcategories: [...category.subcategories],
+  }));
 }
 
 class StubFinanceApiClient implements IFinanceApiClient {
@@ -114,6 +134,46 @@ class StubFinanceApiClient implements IFinanceApiClient {
       transactions[idx] = { ...transactions[idx], splits: splits.map(s => ({ ...s, id: makeId() })), isManualOverride: true };
     }
     return delay(transactions[idx >= 0 ? idx : 0]);
+  }
+  getCategoryTaxonomy() {
+    return delay(cloneTaxonomy());
+  }
+  createCategory(category: { name: string; icon: string }) {
+    const created: CategoryDefinition = { id: makeId(), name: category.name, icon: category.icon, subcategories: [] };
+    categoryTaxonomy.push(created);
+    return delay({ ...created, subcategories: [] });
+  }
+  updateCategory(categoryId: string, category: { name?: string; icon?: string }) {
+    const idx = categoryTaxonomy.findIndex(x => x.id === categoryId);
+    if (idx >= 0) {
+      categoryTaxonomy[idx] = {
+        ...categoryTaxonomy[idx],
+        ...category,
+      };
+    }
+    const fallback = categoryTaxonomy[0] ?? { id: makeId(), name: category.name ?? 'Uncategorized', icon: category.icon ?? '🏷️', subcategories: [] };
+    return delay({
+      ...fallback,
+      subcategories: [...fallback.subcategories],
+    });
+  }
+  createSubcategory(categoryId: string, subcategory: { name: string; icon: string }) {
+    const category = categoryTaxonomy.find(x => x.id === categoryId);
+    const created: SubcategoryDefinition = { id: makeId(), name: subcategory.name, icon: subcategory.icon };
+    if (category) category.subcategories.push(created);
+    return delay(created);
+  }
+  updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string }) {
+    const category = categoryTaxonomy.find(x => x.id === categoryId);
+    const idx = category?.subcategories.findIndex(x => x.id === subcategoryId) ?? -1;
+    if (category && idx >= 0) {
+      category.subcategories[idx] = {
+        ...category.subcategories[idx],
+        ...subcategory,
+      };
+    }
+    const fallback = category?.subcategories[idx >= 0 ? idx : 0] ?? { id: subcategoryId, name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' };
+    return delay({ ...fallback });
   }
 
   // Rules
