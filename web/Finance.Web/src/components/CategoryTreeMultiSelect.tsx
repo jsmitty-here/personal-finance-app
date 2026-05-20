@@ -105,7 +105,7 @@ export function CategoryTreeMultiSelect({
                       className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => setExpandedCategoryId(prev => (prev === category.id ? null : category.id))}
                     >
-                      {selectedSubcategoryCount > 0 ? `${selectedSubcategoryCount} selected` : 'Subcats'}
+                      {selectedSubcategoryCount > 0 ? `${selectedSubcategoryCount} selected` : 'Subcategories'}
                     </button>
                   </div>
                   {isExpanded ? (
