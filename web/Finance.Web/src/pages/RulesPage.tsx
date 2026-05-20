@@ -122,7 +122,11 @@ export function RulesPage() {
 
   useEffect(() => {
     if (!isCreateOpen && !editingRuleId) return
-    editorSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const frame = requestAnimationFrame(() => {
+      const section = editorSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [editingRuleId, isCreateOpen])
 
   return (

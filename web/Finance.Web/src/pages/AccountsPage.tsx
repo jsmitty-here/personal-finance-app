@@ -111,7 +111,11 @@ export function AccountsPage() {
 
   useEffect(() => {
     if (!editingId) return
-    editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const frame = requestAnimationFrame(() => {
+      const section = editSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [editingId])
 
   return (

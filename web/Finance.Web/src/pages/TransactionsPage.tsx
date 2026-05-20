@@ -154,12 +154,20 @@ export function TransactionsPage() {
 
   useEffect(() => {
     if (!editingTxId) return
-    overrideSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const frame = requestAnimationFrame(() => {
+      const section = overrideSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [editingTxId])
 
   useEffect(() => {
     if (!splitTxId) return
-    splitSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const frame = requestAnimationFrame(() => {
+      const section = splitSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [splitTxId])
 
   return (
