@@ -5,6 +5,7 @@ import type { PieLabelRenderProps } from 'recharts'
 import { apiClient } from '@/lib/stub-client'
 import { useTheme } from '@/context/useTheme'
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Wallet, Landmark, CircleDollarSign } from 'lucide-react'
+import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6']
 
@@ -16,7 +17,8 @@ export function DashboardPage() {
   const [ownerId, setOwnerId] = useState<string>('all')
   const [accountId, setAccountId] = useState<string>('all')
   const [accountType, setAccountType] = useState<string>('all')
-  const [category, setCategory] = useState<string>('all')
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([])
+  const [subcategoryFilters, setSubcategoryFilters] = useState<string[]>([])
   const [tag, setTag] = useState<string>('all')
   const [txType, setTxType] = useState<string>('all')
   const [budgetGroup, setBudgetGroup] = useState<string>('all')
@@ -61,6 +63,11 @@ export function DashboardPage() {
     queryFn: () => apiClient.getTransactions(),
   })
 
+  const { data: categoryTaxonomy = [] } = useQuery({
+    queryKey: ['category-taxonomy'],
+    queryFn: () => apiClient.getCategoryTaxonomy(),
+  })
+
   const isDark = resolvedTheme === 'dark'
 
   function getCssVar(name: string) {
@@ -77,7 +84,12 @@ export function DashboardPage() {
     return transactions.filter((tx) => {
       if (accountId !== 'all' && tx.accountId !== accountId) return false
       if (txType !== 'all' && tx.type !== txType) return false
-      if (category !== 'all' && tx.category !== category) return false
+      const hasCategoryFilters = categoryFilters.length > 0 || subcategoryFilters.length > 0
+      if (hasCategoryFilters) {
+        const categoryMatch = tx.category ? categoryFilters.includes(tx.category) : false
+        const subcategoryMatch = tx.subcategory ? subcategoryFilters.includes(tx.subcategory) : false
+        if (!categoryMatch && !subcategoryMatch) return false
+      }
       if (tag !== 'all' && !tx.tags.includes(tag)) return false
       if (dateFrom && tx.date < dateFrom) return false
       if (dateTo && tx.date > dateTo) return false
@@ -87,7 +99,7 @@ export function DashboardPage() {
       }
       return true
     })
-  }, [accountId, accounts, category, dateFrom, dateTo, ownerId, tag, transactions, txType])
+  }, [accountId, accounts, categoryFilters, dateFrom, dateTo, ownerId, subcategoryFilters, tag, transactions, txType])
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account) => {
@@ -133,7 +145,6 @@ export function DashboardPage() {
     return { planned, actual, variance: planned - actual }
   }, [budgets])
 
-  const categoryOptions = Array.from(new Set(transactions.map(t => t.category).filter(Boolean))) as string[]
   const tagOptions = Array.from(new Set(transactions.flatMap(t => t.tags))).sort()
   const ownershipViews = [
     { value: 'all', label: 'Household Total' },
@@ -163,10 +174,14 @@ export function DashboardPage() {
             <option value="all">All Account Types</option>
             {Array.from(new Set(accounts.map(a => a.type))).map(type => <option key={type} value={type}>{type}</option>)}
           </select>
-          <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={category} onChange={e => setCategory(e.target.value)}>
-            <option value="all">All Categories</option>
-            {categoryOptions.map(value => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <CategoryTreeMultiSelect
+            label="Category"
+            taxonomy={categoryTaxonomy}
+            selectedCategories={categoryFilters}
+            selectedSubcategories={subcategoryFilters}
+            onSelectedCategoriesChange={setCategoryFilters}
+            onSelectedSubcategoriesChange={setSubcategoryFilters}
+          />
           <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={tag} onChange={e => setTag(e.target.value)}>
             <option value="all">All Tags</option>
             {tagOptions.map(value => <option key={value} value={value}>{value}</option>)}

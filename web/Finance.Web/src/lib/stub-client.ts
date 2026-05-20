@@ -11,30 +11,6 @@ const owners: Owner[] = [
   { id: 'o3', name: 'Joint', color: '#10b981' },
 ];
 
-const accounts: Account[] = [
-  { id: 'a1', displayName: 'Chase Checking', institution: 'Chase', type: 'checking', balance: 8500, ownershipAllocation: [{ ownerId: 'o1', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
-  { id: 'a2', displayName: 'Joint Savings', institution: 'Ally', type: 'savings', balance: 24000, ownershipAllocation: [{ ownerId: 'o1', percentage: 50 }, { ownerId: 'o2', percentage: 50 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
-  { id: 'a3', displayName: 'Visa Credit Card', institution: 'Chase', type: 'credit_card', balance: -1200, ownershipAllocation: [{ ownerId: 'o3', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
-  { id: 'a4', displayName: '401(k)', institution: 'Fidelity', type: 'retirement', balance: 95000, ownershipAllocation: [{ ownerId: 'o1', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: false, includeInTaxPlanning: true },
-  { id: 'a5', displayName: 'Brokerage', institution: 'Schwab', type: 'brokerage', balance: 42000, ownershipAllocation: [{ ownerId: 'o1', percentage: 70 }, { ownerId: 'o2', percentage: 30 }], isActive: true, includeInNetWorth: true, includeInBudgeting: false, includeInTaxPlanning: true },
-  { id: 'a6', displayName: 'Mortgage', institution: 'Wells Fargo', type: 'mortgage', balance: -320000, ownershipAllocation: [{ ownerId: 'o3', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: true },
-];
-
-const transactions: Transaction[] = [
-  { id: 't1', accountId: 'a1', date: '2026-05-15', amount: -85.40, description: 'WHOLEFDS #123', merchant: 'Whole Foods', type: 'expense', category: 'Food', subcategory: 'Groceries', tags: ['Household'], isManualOverride: false },
-  { id: 't2', accountId: 'a1', date: '2026-05-14', amount: -52.00, description: 'NETFLIX.COM', merchant: 'Netflix', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
-  { id: 't3', accountId: 'a1', date: '2026-05-13', amount: 5200.00, description: 'PAYROLL DIRECT DEPOSIT', merchant: undefined, type: 'income', category: 'Income', subcategory: 'Salary', tags: [], isManualOverride: false },
-  { id: 't4', accountId: 'a3', date: '2026-05-12', amount: -200.00, description: 'COSTCO WHSE #456', merchant: 'Costco', type: 'expense', category: 'Food', subcategory: 'Groceries', tags: ['Household', 'Costco'], isManualOverride: true,
-    splits: [
-      { id: 'sp1', amount: 120, category: 'Food', subcategory: 'Groceries', tags: ['Household'] },
-      { id: 'sp2', amount: 50, category: 'Household', subcategory: 'Supplies', tags: ['Household'] },
-      { id: 'sp3', amount: 30, category: 'Personal', subcategory: 'Other', tags: [] },
-    ]
-  },
-  { id: 't5', accountId: 'a3', date: '2026-05-11', amount: -45.00, description: 'SPOTIFY', merchant: 'Spotify', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
-  { id: 't6', accountId: 'a1', date: '2026-05-10', amount: -120.00, description: 'ELECTRIC BILL', merchant: 'Con Edison', type: 'expense', category: 'Utilities', subcategory: 'Electric', tags: [], isManualOverride: false },
-];
-
 const categoryTaxonomy: CategoryDefinition[] = [
   { id: 'cat-food', name: 'Food', icon: '🍽️', subcategories: [{ id: 'sub-food-groceries', name: 'Groceries', icon: '🛒' }, { id: 'sub-food-dining', name: 'Dining Out', icon: '🍜' }, { id: 'sub-food-coffee', name: 'Coffee', icon: '☕' }] },
   { id: 'cat-housing', name: 'Housing', icon: '🏠', subcategories: [{ id: 'sub-housing-rent', name: 'Rent / Mortgage', icon: '🏡' }, { id: 'sub-housing-maintenance', name: 'Maintenance', icon: '🧰' }, { id: 'sub-housing-furnishings', name: 'Furnishings', icon: '🛋️' }] },
@@ -48,20 +24,151 @@ const categoryTaxonomy: CategoryDefinition[] = [
   { id: 'cat-savings', name: 'Savings & Investments', icon: '📈', subcategories: [{ id: 'sub-savings-brokerage', name: 'Brokerage', icon: '📊' }, { id: 'sub-savings-retirement', name: 'Retirement', icon: '🧓' }, { id: 'sub-savings-emergency', name: 'Emergency Fund', icon: '🛟' }] },
 ];
 
+function createSeededRandom(seed: number) {
+  let current = seed >>> 0
+  return () => {
+    current += 0x6D2B79F5
+    let t = current
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function withJitter(base: number, pctRange: number, random: () => number) {
+  const jitter = (random() * 2 - 1) * pctRange
+  return Math.round(base * (1 + jitter) * 100) / 100
+}
+
+function formatDate(date: Date) {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function monthStartOffset(monthsAgo: number) {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1))
+}
+
+function getMonthlyActual(transactions: Transaction[], monthKey: string, category: string) {
+  return transactions
+    .filter(tx => tx.type === 'expense' && tx.category === category && tx.date.startsWith(monthKey))
+    .reduce((sum, tx) => sum + Math.abs(tx.amount), 0)
+}
+
+function simulateInvestmentBalance(start: number, monthlyContribution: number, months: number, annualReturn: number, monthlyJitter: number, random: () => number) {
+  let balance = start
+  const monthlyBaseReturn = Math.pow(1 + annualReturn, 1 / 12) - 1
+  for (let i = 0; i < months; i += 1) {
+    const monthlyReturn = clamp(monthlyBaseReturn + (random() * 2 - 1) * monthlyJitter, -0.04, 0.06)
+    balance = (balance + monthlyContribution) * (1 + monthlyReturn)
+  }
+  return Math.round(balance * 100) / 100
+}
+
+function generateSyntheticFinancialData() {
+  const random = createSeededRandom(20260520)
+  const generatedTransactions: Transaction[] = []
+  let txCounter = 1
+  const nextTxId = () => `t${txCounter++}`
+
+  for (let monthsAgo = 35; monthsAgo >= 0; monthsAgo -= 1) {
+    const monthStart = monthStartOffset(monthsAgo)
+    const year = monthStart.getUTCFullYear()
+    const month = monthStart.getUTCMonth()
+    const day = (n: number) => formatDate(new Date(Date.UTC(year, month, n)))
+
+    generatedTransactions.push(
+      { id: nextTxId(), accountId: 'a1', date: day(2), amount: withJitter(5200, 0.08, random), description: 'PAYROLL DIRECT DEPOSIT', merchant: undefined, type: 'income', category: 'Income', subcategory: 'Salary', tags: ['Payroll'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(16), amount: withJitter(5200, 0.08, random), description: 'PAYROLL DIRECT DEPOSIT', merchant: undefined, type: 'income', category: 'Income', subcategory: 'Salary', tags: ['Payroll'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(4), amount: -withJitter(88, 0.22, random), description: 'WHOLEFDS #123', merchant: 'Whole Foods', type: 'expense', category: 'Food', subcategory: 'Groceries', tags: ['Household'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a3', date: day(11), amount: -withJitter(142, 0.25, random), description: 'COSTCO WHSE #456', merchant: 'Costco', type: 'expense', category: 'Food', subcategory: 'Groceries', tags: ['Household', 'Costco'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(22), amount: -withJitter(62, 0.25, random), description: 'TRADER JOES', merchant: 'Trader Joe\'s', type: 'expense', category: 'Food', subcategory: 'Groceries', tags: ['Household'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(7), amount: -withJitter(74, 0.3, random), description: 'LOCAL BISTRO', merchant: 'Local Bistro', type: 'expense', category: 'Food', subcategory: 'Dining Out', tags: ['Dining'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(19), amount: -withJitter(68, 0.3, random), description: 'RAMEN HOUSE', merchant: 'Ramen House', type: 'expense', category: 'Food', subcategory: 'Dining Out', tags: ['Dining'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(3), amount: -withJitter(1250, 0.01, random), description: 'MORTGAGE PAYMENT', merchant: 'Wells Fargo', type: 'expense', category: 'Housing', subcategory: 'Rent / Mortgage', tags: ['Housing'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(10), amount: -withJitter(120, 0.15, random), description: 'ELECTRIC BILL', merchant: 'Con Edison', type: 'expense', category: 'Utilities', subcategory: 'Electric', tags: ['Utility'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(13), amount: -withJitter(70, 0.08, random), description: 'INTERNET BILL', merchant: 'Verizon', type: 'expense', category: 'Utilities', subcategory: 'Internet', tags: ['Utility'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a3', date: day(9), amount: -withJitter(58, 0.2, random), description: 'SHELL GAS', merchant: 'Shell', type: 'expense', category: 'Transport', subcategory: 'Fuel', tags: ['Auto'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a3', date: day(24), amount: -withJitter(61, 0.2, random), description: 'CHEVRON GAS', merchant: 'Chevron', type: 'expense', category: 'Transport', subcategory: 'Fuel', tags: ['Auto'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(5), amount: -withJitter(52, 0.02, random), description: 'NETFLIX.COM', merchant: 'Netflix', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(6), amount: -withJitter(16, 0.03, random), description: 'SPOTIFY', merchant: 'Spotify', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(18), amount: -withJitter(42, 0.25, random), description: 'TARGET #315', merchant: 'Target', type: 'expense', category: 'Household', subcategory: 'Supplies', tags: ['Household'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(20), amount: -withJitter(750, 0.05, random), description: '401K CONTRIBUTION', merchant: undefined, type: 'investment', category: 'Savings & Investments', subcategory: 'Retirement', tags: ['Investment'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(21), amount: -withJitter(500, 0.06, random), description: 'BROKERAGE TRANSFER', merchant: 'Schwab', type: 'investment', category: 'Savings & Investments', subcategory: 'Brokerage', tags: ['Investment'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a5', date: day(26), amount: withJitter(82, 0.4, random), description: 'DIVIDEND PAYMENT', merchant: 'Schwab', type: 'income', category: 'Income', subcategory: 'Interest', tags: ['Investment Income'], isManualOverride: false },
+    )
+
+    if ((month + 1) % 3 === 0) {
+      generatedTransactions.push(
+        { id: nextTxId(), accountId: 'a4', date: day(27), amount: withJitter(240, 0.35, random), description: 'RETIREMENT DIVIDEND', merchant: 'Fidelity', type: 'income', category: 'Income', subcategory: 'Interest', tags: ['Investment Income'], isManualOverride: false },
+      )
+    }
+  }
+
+  const latestMonthKey = formatDate(new Date()).slice(0, 7)
+  const splitBase = generatedTransactions.find(tx => tx.type === 'expense' && tx.category === 'Food' && tx.date.startsWith(latestMonthKey))
+  if (splitBase) {
+    splitBase.isManualOverride = true
+    splitBase.splits = [
+      { id: 'sp1', amount: Math.round(Math.abs(splitBase.amount) * 0.6 * 100) / 100, category: 'Food', subcategory: 'Groceries', tags: ['Household'] },
+      { id: 'sp2', amount: Math.round(Math.abs(splitBase.amount) * 0.25 * 100) / 100, category: 'Household', subcategory: 'Supplies', tags: ['Household'] },
+      { id: 'sp3', amount: Math.round(Math.abs(splitBase.amount) * 0.15 * 100) / 100, category: 'Personal', subcategory: 'Other', tags: [] },
+    ]
+  }
+
+  generatedTransactions.sort((a, b) => b.date.localeCompare(a.date))
+
+  const retirementBalance = simulateInvestmentBalance(91000, 750, 36, 0.07, 0.018, random)
+  const brokerageBalance = simulateInvestmentBalance(39000, 500, 36, 0.08, 0.022, random)
+
+  const generatedAccounts: Account[] = [
+    { id: 'a1', displayName: 'Chase Checking', institution: 'Chase', type: 'checking', balance: 9800, ownershipAllocation: [{ ownerId: 'o1', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
+    { id: 'a2', displayName: 'Joint Savings', institution: 'Ally', type: 'savings', balance: 28800, ownershipAllocation: [{ ownerId: 'o1', percentage: 50 }, { ownerId: 'o2', percentage: 50 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
+    { id: 'a3', displayName: 'Visa Credit Card', institution: 'Chase', type: 'credit_card', balance: -1860, ownershipAllocation: [{ ownerId: 'o3', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: false },
+    { id: 'a4', displayName: '401(k)', institution: 'Fidelity', type: 'retirement', balance: retirementBalance, ownershipAllocation: [{ ownerId: 'o1', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: false, includeInTaxPlanning: true },
+    { id: 'a5', displayName: 'Brokerage', institution: 'Schwab', type: 'brokerage', balance: brokerageBalance, ownershipAllocation: [{ ownerId: 'o1', percentage: 70 }, { ownerId: 'o2', percentage: 30 }], isActive: true, includeInNetWorth: true, includeInBudgeting: false, includeInTaxPlanning: true },
+    { id: 'a6', displayName: 'Mortgage', institution: 'Wells Fargo', type: 'mortgage', balance: -301000, ownershipAllocation: [{ ownerId: 'o3', percentage: 100 }], isActive: true, includeInNetWorth: true, includeInBudgeting: true, includeInTaxPlanning: true },
+  ]
+
+  const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const currentMonthKey = formatDate(new Date()).slice(0, 7)
+  const generatedBudgets: Budget[] = [
+    {
+      id: 'b1',
+      name: `${monthLabel} Budget`,
+      period: 'monthly',
+      items: [
+        { category: 'Food', plannedAmount: 980, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Food')) },
+        { category: 'Housing', plannedAmount: 1300, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Housing')) },
+        { category: 'Utilities', plannedAmount: 260, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Utilities')) },
+        { category: 'Transport', plannedAmount: 220, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Transport')) },
+        { category: 'Entertainment', plannedAmount: 120, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Entertainment')) },
+      ],
+    },
+  ]
+
+  return {
+    accounts: generatedAccounts,
+    transactions: generatedTransactions,
+    budgets: generatedBudgets,
+  }
+}
+
+const { accounts, transactions, budgets } = generateSyntheticFinancialData()
+
 const rules: CategorizationRule[] = [
   { id: 'r1', name: 'Grocery Stores', priority: 1, isActive: true, conditions: [{ field: 'merchant', operator: 'contains', value: 'WHOLEFDS' }], actions: [{ field: 'category', value: 'Food' }, { field: 'subcategory', value: 'Groceries' }] },
   { id: 'r2', name: 'Streaming Services', priority: 2, isActive: true, conditions: [{ field: 'tags', operator: 'contains', value: 'Subscription' }], actions: [{ field: 'category', value: 'Entertainment' }, { field: 'subcategory', value: 'Streaming' }] },
   { id: 'r3', name: 'Salary Income', priority: 3, isActive: true, conditions: [{ field: 'description', operator: 'contains', value: 'PAYROLL' }], actions: [{ field: 'type', value: 'income' }, { field: 'category', value: 'Income' }] },
 ];
 
-const budgets: Budget[] = [
-  { id: 'b1', name: 'May 2026 Budget', period: 'monthly', items: [
-    { category: 'Food', plannedAmount: 600, actualAmount: 285 },
-    { category: 'Entertainment', plannedAmount: 100, actualAmount: 97 },
-    { category: 'Utilities', plannedAmount: 200, actualAmount: 120 },
-    { category: 'Transport', plannedAmount: 300, actualAmount: 180 },
-  ]},
-];
 
 function delay<T>(val: T): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(val), 100));
@@ -120,6 +227,16 @@ class StubFinanceApiClient implements IFinanceApiClient {
   getTransactions(filters?: { accountId?: string; ownerId?: string; dateFrom?: string; dateTo?: string }) {
     let result = [...transactions];
     if (filters?.accountId) result = result.filter(t => t.accountId === filters.accountId);
+    if (filters?.ownerId) {
+      const accountIds = accounts
+        .filter(account => account.ownershipAllocation.some(allocation => allocation.ownerId === filters.ownerId))
+        .map(account => account.id)
+      result = result.filter(t => accountIds.includes(t.accountId))
+    }
+    const dateFrom = filters?.dateFrom
+    const dateTo = filters?.dateTo
+    if (dateFrom) result = result.filter(t => t.date >= dateFrom);
+    if (dateTo) result = result.filter(t => t.date <= dateTo);
     return delay(result);
   }
   getTransaction(id: string) { return delay(transactions.find(t => t.id === id) ?? transactions[0]); }
