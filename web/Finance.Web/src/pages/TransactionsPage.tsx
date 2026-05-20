@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/api-client'
+import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
+import { matchesCategoryTreeFilter } from '@/lib/category-filter'
 
 const TRANSACTION_TABLE_COLUMNS = ['Date', 'Description', 'Merchant', 'Account', 'Category', 'Tags', 'Type', 'Rule Match', 'Amount', 'Actions'] as const
 
@@ -29,7 +31,8 @@ export function TransactionsPage() {
   const splitSectionRef = useRef<HTMLDivElement>(null)
   const [accountFilter, setAccountFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([])
+  const [subcategoryFilters, setSubcategoryFilters] = useState<string[]>([])
   const [tagFilter, setTagFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [dateFrom, setDateFrom] = useState<string>('')
@@ -110,7 +113,6 @@ export function TransactionsPage() {
   const ownerById = Object.fromEntries(owners.map(o => [o.id, o.name]))
 
   const tagOptions = Array.from(new Set(transactions.flatMap(tx => tx.tags))).sort()
-  const categoryOptions = Array.from(new Set(transactions.map(tx => tx.category).filter(Boolean))) as string[]
   const categoryIconByName = Object.fromEntries(categoryTaxonomy.map(category => [category.name, category.icon]))
   const subcategoryIconByName = Object.fromEntries(
     categoryTaxonomy.flatMap(category => category.subcategories.map(subcategory => [subcategory.name, subcategory.icon])),
@@ -126,11 +128,11 @@ export function TransactionsPage() {
   const filteredTransactions = useMemo(() => transactions.filter((tx) => {
     const account = accounts.find(a => a.id === tx.accountId)
     if (ownerFilter !== 'all' && !account?.ownershipAllocation.some(o => o.ownerId === ownerFilter)) return false
-    if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false
+    if (!matchesCategoryTreeFilter(tx.category, tx.subcategory, categoryFilters, subcategoryFilters)) return false
     if (tagFilter !== 'all' && !tx.tags.includes(tagFilter)) return false
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false
     return true
-  }), [accounts, categoryFilter, ownerFilter, tagFilter, transactions, typeFilter])
+  }), [accounts, categoryFilters, ownerFilter, subcategoryFilters, tagFilter, transactions, typeFilter])
 
   function doesRuleMatch(rule: CategorizationRule, tx: Transaction) {
     return rule.conditions.every((condition) => {
@@ -276,13 +278,14 @@ export function TransactionsPage() {
             {typeOptions.map(type => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Category</label>
-          <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-            <option value="all">All Categories</option>
-            {categoryOptions.map(value => <option key={value} value={value}>{categoryIconByName[value] ? `${categoryIconByName[value]} ` : ''}{value}</option>)}
-          </select>
-        </div>
+        <CategoryTreeMultiSelect
+          label="Category"
+          taxonomy={categoryTaxonomy}
+          selectedCategories={categoryFilters}
+          selectedSubcategories={subcategoryFilters}
+          onSelectedCategoriesChange={setCategoryFilters}
+          onSelectedSubcategoriesChange={setSubcategoryFilters}
+        />
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Tag</label>
           <select className="border border-input rounded-md px-3 py-1.5 text-sm bg-card text-foreground" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
