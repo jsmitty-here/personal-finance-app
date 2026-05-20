@@ -24,6 +24,10 @@
   --color-success-subtle:                var(--success-subtle);
   --color-success-subtle-foreground:     var(--success-subtle-foreground);
   --color-success-border:                var(--success-border);
+  --color-info-subtle:                   var(--info-subtle);
+  --color-info-subtle-foreground:        var(--info-subtle-foreground);
+  --color-secondary-subtle:              var(--secondary-subtle);
+  --color-secondary-subtle-foreground:   var(--secondary-subtle-foreground);
   --color-destructive:                   var(--destructive);
   --color-destructive-foreground:        var(--destructive-foreground);
   --color-destructive-subtle:            var(--destructive-subtle);
@@ -52,6 +56,10 @@
   --success-subtle:                #f0fdf4;  /* green-50   */
   --success-subtle-foreground:     #15803d;  /* green-700  */
   --success-border:                #bbf7d0;  /* green-200  */
+  --info-subtle:                   #eff6ff;  /* blue-50    */
+  --info-subtle-foreground:        #1d4ed8;  /* blue-700   */
+  --secondary-subtle:              #faf5ff;  /* purple-50  */
+  --secondary-subtle-foreground:   #7e22ce;  /* purple-700 */
   --destructive:                   #dc2626;  /* red-600    */
   --destructive-foreground:        #ffffff;
   --destructive-subtle:            #fef2f2;  /* red-50     */
@@ -80,6 +88,10 @@
   --success-subtle:                #14532d;  /* green-900  */
   --success-subtle-foreground:     #bbf7d0;  /* green-200  */
   --success-border:                #166534;  /* green-800  */
+  --info-subtle:                   #1e3a5f;  /* blue-900   */
+  --info-subtle-foreground:        #93c5fd;  /* blue-300   */
+  --secondary-subtle:              #3b0764;  /* purple-950 */
+  --secondary-subtle-foreground:   #d8b4fe;  /* purple-300 */
   --destructive:                   #f87171;  /* red-400    */
   --destructive-foreground:        #ffffff;
   --destructive-subtle:            #450a0a;  /* red-950    */

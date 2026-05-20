@@ -37,10 +37,15 @@ export function DashboardPage() {
   })
 
   const isDark = resolvedTheme === 'dark'
+
+  function getCssVar(name: string) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  }
+
   const tooltipStyle = isDark
-    ? { backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }
+    ? { backgroundColor: getCssVar('--card'), borderColor: getCssVar('--border'), color: getCssVar('--foreground') }
     : undefined
-  const legendStyle = isDark ? { color: '#f1f5f9' } : undefined
+  const legendStyle = isDark ? { color: getCssVar('--foreground') } : undefined
 
   return (
     <div className="space-y-6">

@@ -48,14 +48,14 @@ export function RulesPage() {
                   <td className="px-4 py-3 font-medium text-foreground">{rule.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {rule.conditions.map((c, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 mr-1">
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-info-subtle text-info-subtle-foreground mr-1">
                         {c.field} {c.operator} "{c.value}"
                       </span>
                     ))}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {rule.actions.map((a, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 mr-1">
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-secondary-subtle text-secondary-subtle-foreground mr-1">
                         {a.field} → {a.value}
                       </span>
                     ))}
