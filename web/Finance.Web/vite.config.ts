@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 const repoSlug = process.env.GITHUB_REPOSITORY
-const repoName = repoSlug && repoSlug.includes('/') ? repoSlug.split('/')[1] : undefined
+const repoName = repoSlug?.match(/^[^/]+\/([^/]+)$/)?.[1]
 const base = process.env.GITHUB_ACTIONS && repoName ? `/${repoName}/` : '/'
 
 export default defineConfig({
