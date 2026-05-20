@@ -171,7 +171,7 @@ export function TransactionsPage() {
     setNewSubcategoryIcon('📂')
   }
 
-  async function submitEdit(txId: string) {
+  async function saveTransactionEdit(txId: string) {
     let categoryToSave = editCategory
     let subcategoryToSave = editSubcategory
     let categoryIdForSubcategory = categoryTaxonomy.find(category => category.name === categoryToSave)?.id
@@ -468,7 +468,7 @@ export function TransactionsPage() {
           )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setEditingTxId(null)} className="rounded-md border border-border px-3 py-2 text-sm text-foreground">Cancel</button>
-            <button type="button" onClick={() => submitEdit(editingTxId)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save override</button>
+            <button type="button" onClick={() => saveTransactionEdit(editingTxId)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save override</button>
           </div>
         </div>
       )}

@@ -97,7 +97,7 @@ export function SettingsPage() {
   }
 
   function subcategoryDraftKey(categoryId: string, subcategoryId: string) {
-    return `${categoryId}:${subcategoryId}`
+    return `${categoryId}|${subcategoryId}`
   }
 
   function updateSubcategoryDraft(categoryId: string, subcategoryId: string, field: 'name' | 'icon', value: string) {
