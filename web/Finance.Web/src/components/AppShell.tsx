@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -32,16 +32,10 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const mobileSidebarRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (!isMobileSidebarOpen) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsMobileSidebarOpen(false)
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    if (isMobileSidebarOpen) mobileSidebarRef.current?.focus()
   }, [isMobileSidebarOpen])
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -119,6 +113,7 @@ export function AppShell({ children }: AppShellProps) {
           aria-label="Close sidebar overlay"
         />
         <aside
+          ref={mobileSidebarRef}
           className={cn(
             'relative h-full w-72 max-w-[85vw] bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-200',
             isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
@@ -126,6 +121,10 @@ export function AppShell({ children }: AppShellProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation"
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setIsMobileSidebarOpen(false)
+          }}
         >
           <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-2">
             <div>
