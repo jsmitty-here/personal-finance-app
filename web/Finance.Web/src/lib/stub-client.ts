@@ -295,6 +295,12 @@ const MOCK_INTEREST_SPLIT_RATIO = 0.35 // Complementary interest share for stack
 const MOCK_INTEREST_PROJECTION_RATE = 0.15 // Annualized placeholder rate for synthetic interest cost trend.
 const MOCK_AVALANCHE_MULTIPLIER = 0.88 // Placeholder payoff efficiency multiplier for avalanche comparison.
 const MOCK_SNOWBALL_MULTIPLIER = 0.91 // Placeholder payoff efficiency multiplier for snowball comparison.
+const MOCK_RETIREMENT_EQUITIES_SHARE = 0.7 // Synthetic allocation assumption for retirement accounts.
+const MOCK_RETIREMENT_BONDS_SHARE = 0.25 // Synthetic allocation assumption for retirement accounts.
+const MOCK_RETIREMENT_CASH_SHARE = 0.05 // Synthetic allocation assumption for retirement accounts.
+const MOCK_BROKERAGE_EQUITIES_SHARE = 0.82 // Synthetic allocation assumption for brokerage accounts.
+const MOCK_BROKERAGE_ALTERNATIVES_SHARE = 0.1 // Synthetic allocation assumption for brokerage accounts.
+const MOCK_BROKERAGE_CASH_SHARE = 0.08 // Synthetic allocation assumption for brokerage accounts.
 
 class StubFinanceApiClient implements IFinanceApiClient {
   // Owners
@@ -751,10 +757,9 @@ class StubFinanceApiClient implements IFinanceApiClient {
     })
 
     const contributionPoints = asChartPoints(monthlyContributionsMap, contributionTxIdsByMonth)
-    let runningContributionTotal = 0
     const latestPortfolioValue = investmentAccounts.reduce((sum, account) => sum + account.balance, 0)
     const portfolioValueTrend = contributionPoints.map((point, index, arr) => {
-      runningContributionTotal += point.value
+      // Placeholder linear interpolation for stub trends until historical holdings snapshots are modeled.
       const estimatedValue = arr.length > 0
         ? (latestPortfolioValue * ((index + 1) / arr.length))
         : latestPortfolioValue
@@ -764,12 +769,11 @@ class StubFinanceApiClient implements IFinanceApiClient {
       }
     })
 
+    const totalContributions = contributionPoints.reduce((sum, point) => sum + point.value, 0)
+    let contributionToDate = 0
     const returnEstimateTrend = contributionPoints.map(point => {
-      runningContributionTotal = runningContributionTotal + 0
-      const contributionToDate = contributionPoints
-        .filter(p => p.key <= point.key)
-        .reduce((sum, p) => sum + p.value, 0)
-      const proportionalValue = latestPortfolioValue * (contributionToDate / Math.max(contributionPoints.reduce((sum, p) => sum + p.value, 0), 1))
+      contributionToDate += point.value
+      const proportionalValue = latestPortfolioValue * (contributionToDate / Math.max(totalContributions, 1))
       return {
         key: point.key,
         label: point.label,
@@ -781,13 +785,13 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const assetAllocation: Record<string, number> = {}
     investmentAccounts.forEach(account => {
       if (account.type === 'retirement') {
-        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * 0.7)
-        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * 0.25)
-        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * 0.05)
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * MOCK_RETIREMENT_EQUITIES_SHARE)
+        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * MOCK_RETIREMENT_BONDS_SHARE)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * MOCK_RETIREMENT_CASH_SHARE)
       } else {
-        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * 0.82)
-        assetAllocation.Alternatives = (assetAllocation.Alternatives ?? 0) + (account.balance * 0.1)
-        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * 0.08)
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * MOCK_BROKERAGE_EQUITIES_SHARE)
+        assetAllocation.Alternatives = (assetAllocation.Alternatives ?? 0) + (account.balance * MOCK_BROKERAGE_ALTERNATIVES_SHARE)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * MOCK_BROKERAGE_CASH_SHARE)
       }
     })
 
