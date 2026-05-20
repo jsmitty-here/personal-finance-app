@@ -4,7 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1]
+const repoSlug = process.env.GITHUB_REPOSITORY
+const repoName = repoSlug && repoSlug.includes('/') ? repoSlug.split('/')[1] : undefined
 const base = process.env.GITHUB_ACTIONS && repoName ? `/${repoName}/` : '/'
 
 export default defineConfig({
