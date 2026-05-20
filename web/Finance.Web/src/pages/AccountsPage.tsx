@@ -127,7 +127,7 @@ export function AccountsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 md:grid-cols-3">
         <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="all">All Account Types</option>
           {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -136,7 +136,7 @@ export function AccountsPage() {
           <option value="all">All Owners</option>
           {owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
         </select>
-        <div className="text-xs text-muted-foreground flex items-center">Showing {filteredAccounts.length} account{filteredAccounts.length !== 1 ? 's' : ''}</div>
+        <div className="text-xs text-muted-foreground flex items-center sm:col-span-2 md:col-span-1">Showing {filteredAccounts.length} account{filteredAccounts.length !== 1 ? 's' : ''}</div>
       </div>
 
       {isAddOpen && (
@@ -169,7 +169,7 @@ export function AccountsPage() {
       )}
 
       {/* Summary row */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="bg-success-subtle border border-success-border rounded-lg p-4">
           <p className="text-xs font-medium text-success-subtle-foreground">Total Assets</p>
           <p className="text-xl font-bold text-success-subtle-foreground">{fmt(totalAssets)}</p>
@@ -178,15 +178,15 @@ export function AccountsPage() {
           <p className="text-xs font-medium text-destructive-subtle-foreground">Total Liabilities</p>
           <p className="text-xl font-bold text-destructive-subtle-foreground">{fmt(totalLiabilities)}</p>
         </div>
-        <div className="bg-primary-subtle border border-primary-border rounded-lg p-4">
+        <div className="col-span-2 rounded-lg border border-primary-border bg-primary-subtle p-4 md:col-span-1">
           <p className="text-xs font-medium text-primary-subtle-foreground">Net Worth</p>
           <p className="text-xl font-bold text-primary-subtle-foreground">{fmt(netWorth)}</p>
         </div>
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="grid grid-cols-1 gap-3 md:hidden sm:grid-cols-2">
         {filteredAccounts.map(account => (
-          <div key={account.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+          <div key={account.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold text-foreground">{account.displayName}</p>

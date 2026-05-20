@@ -200,7 +200,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-4 pt-14 md:p-6 md:pt-6">{children}</div>
+        <div className="mx-auto w-full max-w-screen-2xl p-3 pt-14 sm:p-4 md:p-6 md:pt-6">{children}</div>
       </main>
     </div>
   )

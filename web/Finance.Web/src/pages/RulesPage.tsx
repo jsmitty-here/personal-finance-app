@@ -144,7 +144,7 @@ export function RulesPage() {
       {(isCreateOpen || editingRuleId) && (
         <div ref={editorSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">{editingRuleId ? 'Edit Rule' : 'Create Rule'}</h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={name} onChange={e => setName(e.target.value)} placeholder="Rule name" />
             <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={conditionField} onChange={e => setConditionField(e.target.value as RuleCondition['field'])}>
               <option value="merchant">merchant</option>
@@ -186,9 +186,9 @@ export function RulesPage() {
         </div>
       )}
 
-      <div className="md:hidden space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
         {sorted.map((rule, index) => (
-          <div key={rule.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+          <div key={rule.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-semibold text-foreground">{rule.name}</p>
@@ -212,7 +212,7 @@ export function RulesPage() {
         ))}
       </div>
 
-      <div className="hidden md:block bg-card rounded-lg border border-border overflow-x-auto">
+      <div className="hidden lg:block bg-card rounded-lg border border-border overflow-x-auto">
         <table className="min-w-full divide-y divide-border text-sm">
           <thead className="bg-muted">
             <tr>

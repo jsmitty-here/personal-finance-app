@@ -73,7 +73,7 @@ export function BudgetsPage() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Budgets</h2>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="rounded-lg border border-border bg-primary-subtle p-4">
           <p className="text-xs font-medium text-primary-subtle-foreground">Planned</p>
           <p className="text-xl font-bold text-primary-subtle-foreground">{fmt(aggregate.planned)}</p>
@@ -82,13 +82,13 @@ export function BudgetsPage() {
           <p className="text-xs font-medium text-muted-foreground">Actual</p>
           <p className="text-xl font-bold text-foreground">{fmt(aggregate.actual)}</p>
         </div>
-        <div className={`rounded-lg border p-4 ${aggregate.variance >= 0 ? 'bg-success-subtle border-success-border' : 'bg-destructive-subtle border-destructive-border'}`}>
+        <div className={`col-span-2 rounded-lg border p-4 md:col-span-1 ${aggregate.variance >= 0 ? 'bg-success-subtle border-success-border' : 'bg-destructive-subtle border-destructive-border'}`}>
           <p className="text-xs font-medium">Variance</p>
           <p className="text-xl font-bold">{fmt(aggregate.variance)}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="rounded-lg border border-border bg-card p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={periodFilter} onChange={e => setPeriodFilter(e.target.value as 'all' | 'monthly' | 'quarterly' | 'annual')}>
           <option value="all">All Periods</option>
           <option value="monthly">Monthly</option>
@@ -123,7 +123,7 @@ export function BudgetsPage() {
         const totalActual = budget.items.reduce((s, i) => s + i.actualAmount, 0)
         return (
           <div key={budget.id} className="bg-card rounded-lg border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="px-4 py-3 border-b border-border flex flex-col gap-3 md:px-5 md:py-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="font-semibold text-foreground">{budget.name}</h3>
                 <span className="text-xs text-muted-foreground capitalize">{budget.period}{budget.ownerId ? ` · ${owners.find(o => o.id === budget.ownerId)?.name ?? budget.ownerId}` : ' · Household'}</span>
@@ -148,7 +148,7 @@ export function BudgetsPage() {
                 const over = item.actualAmount > item.plannedAmount
                 const delta = item.plannedAmount - item.actualAmount
                 return (
-                  <div key={item.category} className="px-5 py-3">
+                  <div key={item.category} className="px-4 py-3 md:px-5">
                     <div className="flex items-center justify-between mb-1.5 gap-2">
                       <span className="text-sm font-medium text-foreground">{item.category}</span>
                       <span className={`text-sm font-medium text-right ${over ? 'text-destructive' : 'text-foreground'}`}>
