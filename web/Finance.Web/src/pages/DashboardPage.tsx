@@ -121,7 +121,7 @@ export function DashboardPage() {
     const map: Record<string, number> = {}
     filteredTransactions.filter(t => t.type === 'income').forEach((tx) => {
       const month = tx.date.slice(0, 7)
-      map[month] = (map[month] ?? 0) + t.amount
+      map[month] = (map[month] ?? 0) + tx.amount
     })
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, value]) => ({ month, value }))
   }, [filteredTransactions])

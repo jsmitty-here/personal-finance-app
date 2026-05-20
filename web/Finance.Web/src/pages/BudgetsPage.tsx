@@ -11,6 +11,7 @@ export function BudgetsPage() {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'monthly' | 'quarterly' | 'annual'>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
   const [newName, setNewName] = useState('')
   const [newPeriod, setNewPeriod] = useState<'monthly' | 'quarterly' | 'annual'>('monthly')
   const [newOwnerId, setNewOwnerId] = useState('')
@@ -134,7 +135,10 @@ export function BudgetsPage() {
                 <p className="text-xs text-muted-foreground">spent of planned</p>
               </div>
               <div className="flex items-center gap-3 text-xs">
-                <button type="button" onClick={() => setEditingId(budget.id)} className="text-primary hover:underline">Edit</button>
+                <button type="button" onClick={() => {
+                  setEditingId(budget.id)
+                  setEditingName(budget.name)
+                }} className="text-primary hover:underline">Edit</button>
                 <button type="button" onClick={() => deleteMutation.mutate(budget.id)} className="text-destructive hover:underline">Delete</button>
               </div>
             </div>
@@ -170,14 +174,11 @@ export function BudgetsPage() {
               <div className="border-t border-border p-4 flex flex-col gap-2 sm:flex-row">
                 <input
                   className="w-full border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground"
-                  value={budget.name}
-                  onChange={e => {
-                    const updated = filteredBudgets.map(b => b.id === budget.id ? { ...b, name: e.target.value } : b)
-                    const target = updated.find(b => b.id === budget.id)
-                    if (target) updateMutation.mutate({ id: budget.id, name: target.name })
-                  }}
+                  value={editingName}
+                  onChange={e => setEditingName(e.target.value)}
                 />
                 <button type="button" onClick={() => setEditingId(null)} className="rounded-md border border-border px-3 py-2 text-sm text-foreground">Close</button>
+                <button type="button" onClick={() => updateMutation.mutate({ id: budget.id, name: editingName.trim() || budget.name })} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save Name</button>
               </div>
             )}
           </div>
