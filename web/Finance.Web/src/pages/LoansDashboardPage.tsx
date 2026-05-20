@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/lib/stub-client'
+import { apiClient } from '@/lib/client'
 import { useDashboardFoundation } from '@/features/dashboards/foundation'
 import { DataQualityCard, DashboardBar, DashboardCard, DashboardLine, DashboardTable } from '@/features/dashboards/charts'
 import { drillDown } from '@/features/dashboards/drilldown'

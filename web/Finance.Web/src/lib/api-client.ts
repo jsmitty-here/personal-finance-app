@@ -218,6 +218,46 @@ export interface InvestmentsDashboardData {
   dataQuality: DataQualityFlags;
 }
 
+export interface IncomeDashboardData {
+  incomeTrend: ChartPoint[];
+  incomeBySource: ChartPoint[];
+  grossVsNetIncome: ChartPoint[];
+  irregularIncome: ChartPoint[];
+  incomeStability: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface TaxesDashboardData {
+  taxRelevantTransactions: ChartPoint[];
+  deductibleExpenseSummary: ChartPoint[];
+  estimatedTaxWithholding: ChartPoint[];
+  taxableIncomeCategories: ChartPoint[];
+  taxTreatmentBreakdown: ChartPoint[];
+  retirementContributionTaxView: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface PlanningDashboardData {
+  scenarioComparison: ChartPoint[];
+  payDownDebtVsInvest: ChartPoint[];
+  emergencyFundProjection: ChartPoint[];
+  investmentGrowthProjection: ChartPoint[];
+  breakEvenPoint: ChartPoint[];
+  taxImpactEstimate: ChartPoint[];
+  riskRangeProjection: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface ReviewDashboardData {
+  categorizationCoverage: ChartPoint[];
+  ruleMatchVolume: ChartPoint[];
+  ruleConflictFrequency: ChartPoint[];
+  manualOverrideTrend: ChartPoint[];
+  topMerchantsWithoutRules: ChartPoint[];
+  transactionsNeedingReview: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
 export interface DashboardFiltersInput {
   period?: 'current-month' | 'trailing-3-months' | 'trailing-12-months' | 'ytd' | 'custom';
   dateFrom?: string;
@@ -282,4 +322,8 @@ export interface IFinanceApiClient {
   getBudgetDashboard(filters?: DashboardFiltersInput): Promise<BudgetDashboardData>;
   getLoanDashboard(filters?: DashboardFiltersInput): Promise<LoanDashboardData>;
   getInvestmentsDashboard(filters?: DashboardFiltersInput): Promise<InvestmentsDashboardData>;
+  getIncomeDashboard(filters?: DashboardFiltersInput): Promise<IncomeDashboardData>;
+  getTaxesDashboard(filters?: DashboardFiltersInput): Promise<TaxesDashboardData>;
+  getPlanningDashboard(filters?: DashboardFiltersInput): Promise<PlanningDashboardData>;
+  getReviewDashboard(filters?: DashboardFiltersInput): Promise<ReviewDashboardData>;
 }

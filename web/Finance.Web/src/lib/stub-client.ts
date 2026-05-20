@@ -4,7 +4,8 @@ import type {
   TransactionSplit, CategoryDefinition, SubcategoryDefinition,
   DashboardFiltersInput, DataQualityFlags, OverviewDashboardData,
   SpendingDashboardData, NetWorthDashboardData, BudgetDashboardData,
-  LoanDashboardData, InvestmentsDashboardData, ChartPoint,
+  LoanDashboardData, InvestmentsDashboardData, IncomeDashboardData,
+  TaxesDashboardData, PlanningDashboardData, ReviewDashboardData, ChartPoint,
 } from './api-client';
 
 // --- Stub Data ---
@@ -860,6 +861,343 @@ class StubFinanceApiClient implements IFinanceApiClient {
         { key: 'taxable', label: 'Taxable', value: taxableTotal, drilldown: { accountIds: investmentAccounts.filter(a => a.type === 'brokerage').map(a => a.id) } },
         { key: 'tax-advantaged', label: 'Tax-Advantaged', value: taxAdvantagedTotal, drilldown: { accountIds: investmentAccounts.filter(a => a.type === 'retirement').map(a => a.id) } },
       ],
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getIncomeDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const incomeTransactions = filteredTransactions.filter(tx => tx.type === 'income')
+    const incomeByMonth: Record<string, number> = {}
+    const txIdsByMonth: Record<string, string[]> = {}
+    const incomeBySource: Record<string, number> = {}
+    const txIdsBySource: Record<string, string[]> = {}
+
+    incomeTransactions.forEach(tx => {
+      const month = getMonthKeyFromDate(tx.date)
+      incomeByMonth[month] = (incomeByMonth[month] ?? 0) + tx.amount
+      txIdsByMonth[month] = txIdsByMonth[month] ?? []
+      txIdsByMonth[month].push(tx.id)
+
+      const source = tx.subcategory ?? tx.merchant ?? tx.description.split(' ')[0] ?? 'Other'
+      incomeBySource[source] = (incomeBySource[source] ?? 0) + tx.amount
+      txIdsBySource[source] = txIdsBySource[source] ?? []
+      txIdsBySource[source].push(tx.id)
+    })
+
+    const grossIncome = incomeTransactions.reduce((sum, tx) => sum + tx.amount, 0)
+    const estimatedWithholding = grossIncome * 0.21
+    const netIncome = grossIncome - estimatedWithholding
+
+    const irregularIncomeTransactions = incomeTransactions.filter(tx =>
+      tx.subcategory === 'Bonus'
+      || tx.subcategory === 'Interest'
+      || tx.tags.includes('Investment Income')
+      || tx.description.toLowerCase().includes('bonus')
+      || tx.description.toLowerCase().includes('dividend'),
+    )
+    const irregularIncomeBySource: Record<string, number> = {}
+    irregularIncomeTransactions.forEach(tx => {
+      const source = tx.subcategory ?? tx.merchant ?? 'Other'
+      irregularIncomeBySource[source] = (irregularIncomeBySource[source] ?? 0) + tx.amount
+    })
+
+    const monthlyIncomeValues = Object.values(incomeByMonth)
+    const meanMonthlyIncome = monthlyIncomeValues.length > 0
+      ? monthlyIncomeValues.reduce((sum, value) => sum + value, 0) / monthlyIncomeValues.length
+      : 0
+    const monthlyVariance = monthlyIncomeValues.length > 0
+      ? monthlyIncomeValues.reduce((sum, value) => sum + ((value - meanMonthlyIncome) ** 2), 0) / monthlyIncomeValues.length
+      : 0
+    const monthlyStdDev = Math.sqrt(monthlyVariance)
+    const coefficientOfVariation = meanMonthlyIncome > 0 ? (monthlyStdDev / meanMonthlyIncome) * 100 : 0
+
+    return delay<IncomeDashboardData>({
+      incomeTrend: asChartPoints(incomeByMonth, txIdsByMonth),
+      incomeBySource: asChartPoints(incomeBySource, txIdsBySource),
+      grossVsNetIncome: [
+        { key: 'gross', label: 'Gross', value: grossIncome },
+        { key: 'net', label: 'Net', value: netIncome },
+        { key: 'withholding', label: 'Estimated Withholding', value: estimatedWithholding },
+      ],
+      irregularIncome: asChartPoints(irregularIncomeBySource),
+      incomeStability: [
+        { key: 'avg-monthly-income', label: 'Average Monthly Income', value: meanMonthlyIncome },
+        { key: 'income-volatility', label: 'Monthly Std Dev', value: monthlyStdDev },
+        { key: 'income-stability-index', label: 'Coefficient of Variation %', value: coefficientOfVariation },
+      ],
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getTaxesDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const taxRelevantAccountIds = filteredAccounts.filter(account => account.includeInTaxPlanning).map(account => account.id)
+    const deductibleCategories = new Set(['Health', 'Housing', 'Utilities', 'Transport'])
+    const taxRelevantTransactions = filteredTransactions.filter(tx =>
+      tx.type === 'income'
+      || tx.type === 'tax'
+      || tx.type === 'investment'
+      || taxRelevantAccountIds.includes(tx.accountId)
+      || deductibleCategories.has(tx.category ?? ''),
+    )
+
+    const taxRelevantByMonth: Record<string, number> = {}
+    const taxRelevantTxIds: Record<string, string[]> = {}
+    taxRelevantTransactions.forEach(tx => {
+      const month = getMonthKeyFromDate(tx.date)
+      taxRelevantByMonth[month] = (taxRelevantByMonth[month] ?? 0) + Math.abs(tx.amount)
+      taxRelevantTxIds[month] = taxRelevantTxIds[month] ?? []
+      taxRelevantTxIds[month].push(tx.id)
+    })
+
+    const deductibleExpenseByCategory: Record<string, number> = {}
+    filteredTransactions
+      .filter(tx => tx.type === 'expense' && deductibleCategories.has(tx.category ?? ''))
+      .forEach(tx => {
+        const category = tx.category ?? 'Uncategorized'
+        deductibleExpenseByCategory[category] = (deductibleExpenseByCategory[category] ?? 0) + Math.abs(tx.amount)
+      })
+
+    const grossIncomeByMonth: Record<string, number> = {}
+    filteredTransactions
+      .filter(tx => tx.type === 'income')
+      .forEach(tx => {
+        const month = getMonthKeyFromDate(tx.date)
+        grossIncomeByMonth[month] = (grossIncomeByMonth[month] ?? 0) + tx.amount
+      })
+    const estimatedTaxWithholding = asChartPoints(
+      Object.fromEntries(Object.entries(grossIncomeByMonth).map(([month, gross]) => [month, gross * 0.22])),
+    )
+
+    const taxableIncomeCategories: Record<string, number> = {}
+    filteredTransactions
+      .filter(tx => tx.type === 'income')
+      .forEach(tx => {
+        const source = tx.subcategory ?? tx.category ?? 'Other'
+        taxableIncomeCategories[source] = (taxableIncomeCategories[source] ?? 0) + tx.amount
+      })
+
+    const taxableBalance = filteredAccounts
+      .filter(account => account.type === 'checking' || account.type === 'savings' || account.type === 'brokerage')
+      .reduce((sum, account) => sum + Math.max(account.balance, 0), 0)
+    const taxAdvantagedBalance = filteredAccounts
+      .filter(account => account.type === 'retirement')
+      .reduce((sum, account) => sum + Math.max(account.balance, 0), 0)
+    const deductibleTotal = Object.values(deductibleExpenseByCategory).reduce((sum, value) => sum + value, 0)
+
+    const retirementContributionByMonth: Record<string, number> = {}
+    filteredTransactions
+      .filter(tx => tx.type === 'investment' && filteredAccounts.some(account => account.id === tx.accountId && account.type === 'retirement'))
+      .forEach(tx => {
+        const month = getMonthKeyFromDate(tx.date)
+        retirementContributionByMonth[month] = (retirementContributionByMonth[month] ?? 0) + Math.abs(tx.amount)
+      })
+
+    return delay<TaxesDashboardData>({
+      taxRelevantTransactions: asChartPoints(taxRelevantByMonth, taxRelevantTxIds),
+      deductibleExpenseSummary: asChartPoints(deductibleExpenseByCategory),
+      estimatedTaxWithholding,
+      taxableIncomeCategories: asChartPoints(taxableIncomeCategories),
+      taxTreatmentBreakdown: [
+        { key: 'taxable', label: 'Taxable Accounts', value: taxableBalance },
+        { key: 'tax-advantaged', label: 'Tax-Advantaged Accounts', value: taxAdvantagedBalance },
+        { key: 'deductible-expenses', label: 'Deductible Expenses', value: deductibleTotal },
+      ],
+      retirementContributionTaxView: asChartPoints(retirementContributionByMonth),
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getPlanningDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const monthlyIncome = filteredTransactions
+      .filter(tx => tx.type === 'income')
+      .reduce<Record<string, number>>((acc, tx) => {
+        const month = getMonthKeyFromDate(tx.date)
+        acc[month] = (acc[month] ?? 0) + tx.amount
+        return acc
+      }, {})
+    const monthlyExpenses = filteredTransactions
+      .filter(tx => tx.type === 'expense')
+      .reduce<Record<string, number>>((acc, tx) => {
+        const month = getMonthKeyFromDate(tx.date)
+        acc[month] = (acc[month] ?? 0) + Math.abs(tx.amount)
+        return acc
+      }, {})
+    const monthlyInvestmentContributions = filteredTransactions
+      .filter(tx => tx.type === 'investment')
+      .reduce<Record<string, number>>((acc, tx) => {
+        const month = getMonthKeyFromDate(tx.date)
+        acc[month] = (acc[month] ?? 0) + Math.abs(tx.amount)
+        return acc
+      }, {})
+
+    const avgIncome = Object.values(monthlyIncome).length > 0
+      ? Object.values(monthlyIncome).reduce((sum, value) => sum + value, 0) / Object.values(monthlyIncome).length
+      : 0
+    const avgExpenses = Object.values(monthlyExpenses).length > 0
+      ? Object.values(monthlyExpenses).reduce((sum, value) => sum + value, 0) / Object.values(monthlyExpenses).length
+      : 0
+    const avgInvestmentContribution = Object.values(monthlyInvestmentContributions).length > 0
+      ? Object.values(monthlyInvestmentContributions).reduce((sum, value) => sum + value, 0) / Object.values(monthlyInvestmentContributions).length
+      : 0
+
+    const monthlySurplus = Math.max(avgIncome - avgExpenses, 0)
+    const targetEmergencyFund = avgExpenses * 6
+    const liquidCash = filteredAccounts
+      .filter(account => account.type === 'checking' || account.type === 'savings')
+      .reduce((sum, account) => sum + Math.max(account.balance, 0), 0)
+    const debtBalance = filteredAccounts
+      .filter(account => account.balance < 0)
+      .reduce((sum, account) => sum + Math.abs(account.balance), 0)
+    const investmentBalance = filteredAccounts
+      .filter(account => account.type === 'brokerage' || account.type === 'retirement')
+      .reduce((sum, account) => sum + Math.max(account.balance, 0), 0)
+
+    const scenarioComparison: PlanningDashboardData['scenarioComparison'] = [
+      { key: 'conservative', label: 'Conservative', value: (investmentBalance * 1.04) + (monthlySurplus * 12) - (debtBalance * 0.92) },
+      { key: 'base', label: 'Base', value: (investmentBalance * 1.07) + (monthlySurplus * 12) - (debtBalance * 0.9) },
+      { key: 'aggressive', label: 'Aggressive', value: (investmentBalance * 1.11) + ((monthlySurplus + avgInvestmentContribution * 0.5) * 12) - (debtBalance * 0.86) },
+    ]
+
+    const payDownDebtVsInvest: PlanningDashboardData['payDownDebtVsInvest'] = [
+      { key: 'debt-first', label: 'Debt First', value: debtBalance * 0.82 },
+      { key: 'balanced', label: 'Balanced', value: debtBalance * 0.88 + investmentBalance * 1.05 },
+      { key: 'invest-first', label: 'Invest First', value: debtBalance * 0.94 + investmentBalance * 1.09 },
+    ]
+
+    let emergencyBalance = liquidCash
+    const emergencyFundProjection: PlanningDashboardData['emergencyFundProjection'] = []
+    for (let month = 1; month <= 12; month += 1) {
+      emergencyBalance += monthlySurplus * 0.6
+      emergencyFundProjection.push({
+        key: `m${month}`,
+        label: `Month ${month}`,
+        value: Math.min(emergencyBalance, targetEmergencyFund),
+      })
+    }
+
+    const investmentGrowthProjection: PlanningDashboardData['investmentGrowthProjection'] = []
+    let projectedInvestmentBalance = investmentBalance
+    for (let month = 1; month <= 24; month += 1) {
+      projectedInvestmentBalance = (projectedInvestmentBalance + avgInvestmentContribution) * (1 + (0.07 / 12))
+      investmentGrowthProjection.push({
+        key: `m${month}`,
+        label: `Month ${month}`,
+        value: Math.round(projectedInvestmentBalance * 100) / 100,
+      })
+    }
+
+    const monthsToEmergencyTarget = monthlySurplus > 0 ? Math.ceil(Math.max(targetEmergencyFund - liquidCash, 0) / (monthlySurplus * 0.6)) : 0
+    const monthsToDebtPayoff = monthlySurplus > 0 ? Math.ceil(debtBalance / Math.max(monthlySurplus, 1)) : 0
+    const monthsToInvestmentMilestone = avgInvestmentContribution > 0 ? Math.ceil(Math.max(100000 - investmentBalance, 0) / avgInvestmentContribution) : 0
+    const breakEvenPoint: PlanningDashboardData['breakEvenPoint'] = [
+      { key: 'emergency-target', label: 'Emergency Fund Target (months)', value: monthsToEmergencyTarget },
+      { key: 'debt-payoff', label: 'Debt Payoff (months)', value: monthsToDebtPayoff },
+      { key: '100k-investments', label: 'Reach $100k Investments (months)', value: monthsToInvestmentMilestone },
+    ]
+
+    const taxImpactEstimate: PlanningDashboardData['taxImpactEstimate'] = [
+      { key: 'current', label: 'Current Path', value: avgIncome * 12 * 0.22 },
+      { key: 'optimize-retirement', label: 'Retirement Optimization', value: avgIncome * 12 * 0.19 },
+      { key: 'aggressive-withdrawals', label: 'Aggressive Withdrawals', value: avgIncome * 12 * 0.24 },
+    ]
+
+    const riskRangeProjection = investmentGrowthProjection.map(point => ({
+      ...point,
+      secondaryValue: Math.round(point.value * 0.85 * 100) / 100,
+      tertiaryValue: Math.round(point.value * 1.12 * 100) / 100,
+    }))
+
+    return delay<PlanningDashboardData>({
+      scenarioComparison,
+      payDownDebtVsInvest,
+      emergencyFundProjection,
+      investmentGrowthProjection,
+      breakEvenPoint,
+      taxImpactEstimate,
+      riskRangeProjection,
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getReviewDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+
+    const categorized = filteredTransactions.filter(tx => !!tx.category).length
+    const uncategorized = filteredTransactions.length - categorized
+
+    const ruleMatchesByRule: Record<string, number> = {}
+    const ruleConflictByMonth: Record<string, number> = {}
+    const merchantsWithoutRules: Record<string, number> = {}
+    const reviewBuckets: Record<string, number> = {
+      uncategorized: 0,
+      manual_override: 0,
+      potential_duplicate: 0,
+      no_tags: 0,
+    }
+    const manualOverridesByMonth: Record<string, number> = {}
+
+    const duplicateSeen = new Set<string>()
+    filteredTransactions.forEach(tx => {
+      const month = getMonthKeyFromDate(tx.date)
+
+      const matchingRules = rules.filter(rule => rule.isActive && rule.conditions.every(condition => {
+        const conditionValue = condition.value.toLowerCase()
+        if (!conditionValue) return false
+        const description = tx.description.toLowerCase()
+        const merchant = (tx.merchant ?? '').toLowerCase()
+        const category = (tx.category ?? '').toLowerCase()
+        const tags = tx.tags.map(tag => tag.toLowerCase())
+        if (condition.field === 'merchant') return merchant.includes(conditionValue)
+        if (condition.field === 'description') return description.includes(conditionValue)
+        if (condition.field === 'category') return category.includes(conditionValue)
+        if (condition.field === 'tags') return tags.some(tag => tag.includes(conditionValue))
+        return false
+      }))
+
+      matchingRules.forEach(rule => {
+        ruleMatchesByRule[rule.name] = (ruleMatchesByRule[rule.name] ?? 0) + 1
+      })
+
+      if (matchingRules.length > 1) {
+        ruleConflictByMonth[month] = (ruleConflictByMonth[month] ?? 0) + 1
+      }
+
+      if (!tx.category) reviewBuckets.uncategorized += 1
+      if (tx.isManualOverride || !!tx.splits?.length) {
+        reviewBuckets.manual_override += 1
+        manualOverridesByMonth[month] = (manualOverridesByMonth[month] ?? 0) + 1
+      }
+      if (tx.tags.length === 0) reviewBuckets.no_tags += 1
+
+      const dupKey = `${tx.date}|${tx.amount}|${tx.description}`
+      if (duplicateSeen.has(dupKey)) {
+        reviewBuckets.potential_duplicate += 1
+      } else {
+        duplicateSeen.add(dupKey)
+      }
+
+      if (tx.merchant && matchingRules.length === 0 && tx.type === 'expense') {
+        merchantsWithoutRules[tx.merchant] = (merchantsWithoutRules[tx.merchant] ?? 0) + Math.abs(tx.amount)
+      }
+    })
+
+    const topMerchantsWithoutRules = asChartPoints(merchantsWithoutRules)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8)
+
+    return delay<ReviewDashboardData>({
+      categorizationCoverage: [
+        { key: 'categorized', label: 'Categorized', value: categorized },
+        { key: 'uncategorized', label: 'Uncategorized', value: uncategorized },
+      ],
+      ruleMatchVolume: asChartPoints(ruleMatchesByRule),
+      ruleConflictFrequency: asChartPoints(ruleConflictByMonth),
+      manualOverrideTrend: asChartPoints(manualOverridesByMonth),
+      topMerchantsWithoutRules,
+      transactionsNeedingReview: asChartPoints(reviewBuckets),
       dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
     })
   }

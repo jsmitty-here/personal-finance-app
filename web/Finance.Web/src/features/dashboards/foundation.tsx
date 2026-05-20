@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet } from 'react-router-dom'
-import { apiClient } from '@/lib/stub-client'
+import { apiClient } from '@/lib/client'
 import type { Account, DashboardFiltersInput, Owner, TransactionType } from '@/lib/api-client'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
 import { validateDashboardFilters } from '@/features/dashboards/validation'
