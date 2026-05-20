@@ -151,7 +151,9 @@ class StubFinanceApiClient implements IFinanceApiClient {
         ...category,
       };
     }
-    const fallback = categoryTaxonomy[0] ?? { id: makeId(), name: category.name ?? 'Uncategorized', icon: category.icon ?? '🏷️', subcategories: [] };
+    const fallback = idx >= 0
+      ? categoryTaxonomy[idx]
+      : (categoryTaxonomy[0] ?? { id: makeId(), name: category.name ?? 'Uncategorized', icon: category.icon ?? '🏷️', subcategories: [] });
     return delay({
       ...fallback,
       subcategories: [...fallback.subcategories],
@@ -172,7 +174,9 @@ class StubFinanceApiClient implements IFinanceApiClient {
         ...subcategory,
       };
     }
-    const fallback = category?.subcategories[idx >= 0 ? idx : 0] ?? { id: subcategoryId, name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' };
+    const fallback = idx >= 0
+      ? (category?.subcategories[idx] ?? { id: subcategoryId, name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' })
+      : (category?.subcategories[0] ?? { id: makeId(), name: subcategory.name ?? 'Other', icon: subcategory.icon ?? '📦' });
     return delay({ ...fallback });
   }
 
