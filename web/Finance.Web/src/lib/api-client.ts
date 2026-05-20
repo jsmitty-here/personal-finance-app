@@ -117,6 +117,109 @@ export interface SpendingByCategory {
   percentage: number;
 }
 
+export interface DrilldownReference {
+  transactionIds?: string[];
+  accountIds?: string[];
+  loanAccountIds?: string[];
+  holdingIds?: string[];
+}
+
+export interface ChartPoint {
+  key: string;
+  label: string;
+  value: number;
+  secondaryValue?: number;
+  tertiaryValue?: number;
+  drilldown?: DrilldownReference;
+}
+
+export interface DataQualityFlags {
+  uncategorized: number;
+  excluded: number;
+  pending: number;
+  duplicate: number;
+  estimated: number;
+  manuallyEntered: number;
+  syncNeeded: number;
+}
+
+export interface OverviewDashboardData {
+  netWorthSnapshot: {
+    netWorth: number;
+    assets: number;
+    liabilities: number;
+    trend: ChartPoint[];
+    drilldown?: DrilldownReference;
+  };
+  monthlyCashFlow: ChartPoint[];
+  spendingByCategory: ChartPoint[];
+  savingsRate: ChartPoint[];
+  debtBalanceSummary: ChartPoint[];
+  investmentAllocation: ChartPoint[];
+  alerts: { id: string; severity: 'low' | 'medium' | 'high'; message: string; drilldown?: DrilldownReference }[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface SpendingDashboardData {
+  spendingByCategory: ChartPoint[];
+  categoryTrend: ChartPoint[];
+  monthOverMonth: ChartPoint[];
+  yearOverYear: ChartPoint[];
+  merchantSpending: ChartPoint[];
+  tagSpending: ChartPoint[];
+  dailyBurn: ChartPoint[];
+  spendingHeatmap: ChartPoint[];
+  uncategorizedSpending: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface NetWorthDashboardData {
+  netWorthOverTime: ChartPoint[];
+  assetsVsLiabilities: ChartPoint[];
+  netWorthBreakdown: ChartPoint[];
+  ownershipAdjustedNetWorth: ChartPoint[];
+  accountBalanceTrend: ChartPoint[];
+  manualAssetValuationTrend: ChartPoint[];
+  liabilityTrend: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface BudgetDashboardData {
+  budgetVsActual: ChartPoint[];
+  budgetVarianceTrend: ChartPoint[];
+  budgetUtilization: ChartPoint[];
+  categoryOverrunRanking: ChartPoint[];
+  remainingBudgetBurndown: ChartPoint[];
+  flexibleVsFixedSplit: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface LoanDashboardData {
+  debtBalanceOverTime: ChartPoint[];
+  debtBreakdown: ChartPoint[];
+  principalVsInterest: ChartPoint[];
+  payoffTimeline: ChartPoint[];
+  interestCostProjection: ChartPoint[];
+  extraPaymentImpact: ChartPoint[];
+  debtStrategyComparison: ChartPoint[];
+  debtToAssetsRatio: ChartPoint[];
+  dataQuality: DataQualityFlags;
+}
+
+export interface DashboardFiltersInput {
+  period?: 'current-month' | 'trailing-3-months' | 'trailing-12-months' | 'ytd' | 'custom';
+  dateFrom?: string;
+  dateTo?: string;
+  ownerId?: string;
+  accountId?: string;
+  accountType?: Account['type'];
+  categories?: string[];
+  subcategories?: string[];
+  tag?: string;
+  transactionType?: TransactionType;
+  ownershipView?: 'household' | 'owner1' | 'owner2' | 'joint' | 'adjusted';
+}
+
 export interface IFinanceApiClient {
   // Owners
   getOwners(): Promise<Owner[]>;
@@ -161,4 +264,9 @@ export interface IFinanceApiClient {
   getNetWorth(ownerId?: string): Promise<NetWorthSummary>;
   getCashFlow(period: string, ownerId?: string): Promise<CashFlowSummary>;
   getSpendingByCategory(period: string, ownerId?: string): Promise<SpendingByCategory[]>;
+  getOverviewDashboard(filters?: DashboardFiltersInput): Promise<OverviewDashboardData>;
+  getSpendingDashboard(filters?: DashboardFiltersInput): Promise<SpendingDashboardData>;
+  getNetWorthDashboard(filters?: DashboardFiltersInput): Promise<NetWorthDashboardData>;
+  getBudgetDashboard(filters?: DashboardFiltersInput): Promise<BudgetDashboardData>;
+  getLoanDashboard(filters?: DashboardFiltersInput): Promise<LoanDashboardData>;
 }

@@ -19,6 +19,21 @@
   /agent-prompts            # Reusable prompts for AI coding agents
 ```
 
+### Finance.Web Dashboard Route Topology
+
+The dashboard experience is organized under `/dashboard/*` with a shared filter foundation and nested route views:
+
+- `/dashboard/overview`
+- `/dashboard/net-worth`
+- `/dashboard/spending`
+- `/dashboard/budget`
+- `/dashboard/loans`
+- `/dashboard/investments` (phase-2 shell)
+- `/dashboard/income` (phase-2 shell)
+- `/dashboard/taxes` (phase-2 shell)
+- `/dashboard/planning` (phase-2 shell)
+- `/dashboard/review` (phase-2 shell)
+
 ## Backend: Finance.Api
 
 One backend project. Split only if a strong reason emerges.

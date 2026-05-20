@@ -2,6 +2,9 @@ import type {
   IFinanceApiClient, Owner, Account, Transaction, CategorizationRule,
   Budget, NetWorthSummary, CashFlowSummary, SpendingByCategory,
   TransactionSplit, CategoryDefinition, SubcategoryDefinition,
+  DashboardFiltersInput, DataQualityFlags, OverviewDashboardData,
+  SpendingDashboardData, NetWorthDashboardData, BudgetDashboardData,
+  LoanDashboardData, ChartPoint,
 } from './api-client';
 
 // --- Stub Data ---
@@ -191,6 +194,101 @@ function cloneTaxonomy() {
   }));
 }
 
+function monthKey(date: string) {
+  return date.slice(0, 7)
+}
+
+function asChartPoints(map: Record<string, number>, drilldownIdsByKey?: Record<string, string[]>): ChartPoint[] {
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({
+      key,
+      label: key,
+      value,
+      drilldown: drilldownIdsByKey?.[key] ? { transactionIds: drilldownIdsByKey[key] } : undefined,
+    }))
+}
+
+function getDateRange(period?: DashboardFiltersInput['period']) {
+  const now = new Date()
+  const to = formatDate(now)
+  if (!period || period === 'current-month') {
+    const from = formatDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)))
+    return { from, to }
+  }
+  if (period === 'trailing-3-months') {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1))
+    return { from: formatDate(d), to }
+  }
+  if (period === 'trailing-12-months') {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1))
+    return { from: formatDate(d), to }
+  }
+  if (period === 'ytd') {
+    return { from: formatDate(new Date(Date.UTC(now.getUTCFullYear(), 0, 1))), to }
+  }
+  return { from: '', to }
+}
+
+function getOwnerIdForOwnershipView(ownershipView?: DashboardFiltersInput['ownershipView']) {
+  if (ownershipView === 'owner1') return 'o1'
+  if (ownershipView === 'owner2') return 'o2'
+  if (ownershipView === 'joint') return 'o3'
+  return undefined
+}
+
+function applyDashboardFilters(filters?: DashboardFiltersInput) {
+  const ownerFromView = getOwnerIdForOwnershipView(filters?.ownershipView)
+  const ownerId = filters?.ownerId && filters.ownerId !== 'all' ? filters.ownerId : ownerFromView
+  const resolvedRange = filters?.period === 'custom'
+    ? { from: filters?.dateFrom ?? '', to: filters?.dateTo ?? '' }
+    : getDateRange(filters?.period)
+  const selectedAccountIds = accounts
+    .filter(account => {
+      if (filters?.accountId && filters.accountId !== 'all' && account.id !== filters.accountId) return false
+      if (filters?.accountType && account.type !== filters.accountType) return false
+      if (ownerId && !account.ownershipAllocation.some(o => o.ownerId === ownerId)) return false
+      return true
+    })
+    .map(account => account.id)
+
+  const filteredAccounts = accounts.filter(a => selectedAccountIds.includes(a.id))
+  const filteredTransactions = transactions.filter(tx => {
+    if (!selectedAccountIds.includes(tx.accountId)) return false
+    if (filters?.transactionType && tx.type !== filters.transactionType) return false
+    if (filters?.categories?.length && !filters.categories.includes(tx.category ?? '')) return false
+    if (filters?.subcategories?.length && !filters.subcategories.includes(tx.subcategory ?? '')) return false
+    if (filters?.tag && filters.tag !== 'all' && !tx.tags.includes(filters.tag)) return false
+    if (resolvedRange.from && tx.date < resolvedRange.from) return false
+    if (resolvedRange.to && tx.date > resolvedRange.to) return false
+    return true
+  })
+
+  return { filteredAccounts, filteredTransactions }
+}
+
+function getDataQualityFlags(filteredTransactions: Transaction[], filteredAccounts: Account[]): DataQualityFlags {
+  const duplicates = new Set<string>()
+  let duplicateCount = 0
+  filteredTransactions.forEach(tx => {
+    const key = `${tx.date}|${tx.amount}|${tx.description}`
+    if (duplicates.has(key)) {
+      duplicateCount += 1
+    } else {
+      duplicates.add(key)
+    }
+  })
+  return {
+    uncategorized: filteredTransactions.filter(t => !t.category).length,
+    excluded: filteredAccounts.filter(a => !a.includeInBudgeting).length,
+    pending: filteredTransactions.filter(t => t.description.toLowerCase().includes('pending')).length,
+    duplicate: duplicateCount,
+    estimated: filteredTransactions.filter(t => t.tags.some(tag => tag.toLowerCase().includes('estimated'))).length,
+    manuallyEntered: filteredTransactions.filter(t => t.isManualOverride).length,
+    syncNeeded: filteredAccounts.filter(a => a.type === 'manual_asset' || a.type === 'manual_liability').length,
+  }
+}
+
 class StubFinanceApiClient implements IFinanceApiClient {
   // Owners
   getOwners() { return delay([...owners]); }
@@ -369,6 +467,263 @@ class StubFinanceApiClient implements IFinanceApiClient {
       category, amount, percentage: total > 0 ? (amount / total) * 100 : 0,
     }));
     return delay(result);
+  }
+
+  getOverviewDashboard(filters?: DashboardFiltersInput) {
+    const { filteredAccounts, filteredTransactions } = applyDashboardFilters(filters)
+    const assets = filteredAccounts.filter(a => a.balance > 0).reduce((s, a) => s + a.balance, 0)
+    const liabilities = Math.abs(filteredAccounts.filter(a => a.balance < 0).reduce((s, a) => s + a.balance, 0))
+    const netWorth = assets - liabilities
+
+    const monthlyIncomeMap: Record<string, number> = {}
+    const monthlyExpenseMap: Record<string, number> = {}
+    const monthTxIds: Record<string, string[]> = {}
+    filteredTransactions.forEach(tx => {
+      const key = monthKey(tx.date)
+      monthTxIds[key] = monthTxIds[key] ?? []
+      monthTxIds[key].push(tx.id)
+      if (tx.type === 'income') monthlyIncomeMap[key] = (monthlyIncomeMap[key] ?? 0) + tx.amount
+      if (tx.type === 'expense') monthlyExpenseMap[key] = (monthlyExpenseMap[key] ?? 0) + Math.abs(tx.amount)
+    })
+    const months = Array.from(new Set([...Object.keys(monthlyIncomeMap), ...Object.keys(monthlyExpenseMap)])).sort((a, b) => a.localeCompare(b))
+    const monthlyCashFlow = months.map(key => ({
+      key,
+      label: key,
+      value: monthlyIncomeMap[key] ?? 0,
+      secondaryValue: monthlyExpenseMap[key] ?? 0,
+      tertiaryValue: (monthlyIncomeMap[key] ?? 0) - (monthlyExpenseMap[key] ?? 0),
+      drilldown: { transactionIds: monthTxIds[key] ?? [] },
+    }))
+    const spendingByCategory: Record<string, number> = {}
+    const spendingDrilldown: Record<string, string[]> = {}
+    filteredTransactions.filter(t => t.type === 'expense').forEach(tx => {
+      const category = tx.category ?? 'Uncategorized'
+      spendingByCategory[category] = (spendingByCategory[category] ?? 0) + Math.abs(tx.amount)
+      spendingDrilldown[category] = spendingDrilldown[category] ?? []
+      spendingDrilldown[category].push(tx.id)
+    })
+    const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+    const totalExpenses = filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
+    const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
+    const debtBreakdown: Record<string, number> = {}
+    filteredAccounts.filter(a => a.balance < 0).forEach(account => {
+      debtBreakdown[account.displayName] = Math.abs(account.balance)
+    })
+    const investmentBreakdown: Record<string, number> = {}
+    filteredAccounts
+      .filter(a => a.type === 'brokerage' || a.type === 'retirement')
+      .forEach(account => {
+        investmentBreakdown[account.displayName] = account.balance
+      })
+    const alerts: OverviewDashboardData['alerts'] = []
+    const dataQuality = getDataQualityFlags(filteredTransactions, filteredAccounts)
+    if (dataQuality.uncategorized > 0) alerts.push({ id: 'uncategorized', severity: 'high', message: `${dataQuality.uncategorized} uncategorized transactions`, drilldown: { transactionIds: filteredTransactions.filter(t => !t.category).map(t => t.id) } })
+    if (dataQuality.pending > 0) alerts.push({ id: 'pending', severity: 'medium', message: `${dataQuality.pending} pending transactions`, drilldown: { transactionIds: filteredTransactions.filter(t => t.description.toLowerCase().includes('pending')).map(t => t.id) } })
+    if (dataQuality.syncNeeded > 0) alerts.push({ id: 'sync', severity: 'low', message: `${dataQuality.syncNeeded} manual account(s) may need sync review`, drilldown: { accountIds: filteredAccounts.filter(a => a.type === 'manual_asset' || a.type === 'manual_liability').map(a => a.id) } })
+    return delay<OverviewDashboardData>({
+      netWorthSnapshot: {
+        netWorth,
+        assets,
+        liabilities,
+        trend: months.map(key => ({
+          key,
+          label: key,
+          value: (monthlyIncomeMap[key] ?? 0) - (monthlyExpenseMap[key] ?? 0),
+          drilldown: { transactionIds: monthTxIds[key] ?? [] },
+        })),
+        drilldown: { accountIds: filteredAccounts.map(a => a.id) },
+      },
+      monthlyCashFlow,
+      spendingByCategory: asChartPoints(spendingByCategory, spendingDrilldown),
+      savingsRate: [{ key: 'savings-rate', label: 'Savings Rate', value: savingsRate }],
+      debtBalanceSummary: asChartPoints(debtBreakdown),
+      investmentAllocation: asChartPoints(investmentBreakdown),
+      alerts,
+      dataQuality,
+    })
+  }
+
+  getSpendingDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const expenses = filteredTransactions.filter(t => t.type === 'expense')
+    const byCategory: Record<string, number> = {}
+    const byCategoryMonth: Record<string, number> = {}
+    const byMerchant: Record<string, number> = {}
+    const byTag: Record<string, number> = {}
+    const byDay: Record<string, number> = {}
+    expenses.forEach(tx => {
+      const category = tx.category ?? 'Uncategorized'
+      byCategory[category] = (byCategory[category] ?? 0) + Math.abs(tx.amount)
+      const categoryMonthKey = `${monthKey(tx.date)} · ${category}`
+      byCategoryMonth[categoryMonthKey] = (byCategoryMonth[categoryMonthKey] ?? 0) + Math.abs(tx.amount)
+      const merchant = tx.merchant ?? 'Unknown Merchant'
+      byMerchant[merchant] = (byMerchant[merchant] ?? 0) + Math.abs(tx.amount)
+      if (tx.tags.length === 0) byTag['(none)'] = (byTag['(none)'] ?? 0) + Math.abs(tx.amount)
+      tx.tags.forEach(tag => {
+        byTag[tag] = (byTag[tag] ?? 0) + Math.abs(tx.amount)
+      })
+      byDay[tx.date] = (byDay[tx.date] ?? 0) + Math.abs(tx.amount)
+    })
+    const monthly = asChartPoints(Object.fromEntries(
+      Object.entries(byDay).reduce<Record<string, number>>((acc, [date, value]) => {
+        const key = monthKey(date)
+        acc[key] = (acc[key] ?? 0) + value
+        return acc
+      }, {}),
+    ))
+    const monthOverMonth = monthly.map((point, index) => ({
+      ...point,
+      secondaryValue: index > 0 ? monthly[index - 1].value : point.value,
+      tertiaryValue: index > 0 ? point.value - monthly[index - 1].value : 0,
+    }))
+    return delay<SpendingDashboardData>({
+      spendingByCategory: asChartPoints(byCategory),
+      categoryTrend: asChartPoints(byCategoryMonth),
+      monthOverMonth,
+      yearOverYear: monthOverMonth,
+      merchantSpending: asChartPoints(byMerchant),
+      tagSpending: asChartPoints(byTag),
+      dailyBurn: asChartPoints(byDay),
+      spendingHeatmap: asChartPoints(byDay),
+      uncategorizedSpending: asChartPoints({ Uncategorized: byCategory.Uncategorized ?? 0 }),
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getNetWorthDashboard(filters?: DashboardFiltersInput) {
+    const { filteredAccounts, filteredTransactions } = applyDashboardFilters(filters)
+    const months = Array.from(new Set(filteredTransactions.map(tx => monthKey(tx.date)))).sort((a, b) => a.localeCompare(b))
+    const netWorthOverTime = months.map(key => {
+      const monthTransactions = filteredTransactions.filter(tx => monthKey(tx.date) === key)
+      const monthNet = monthTransactions.reduce((sum, tx) => {
+        if (tx.type === 'income') return sum + tx.amount
+        if (tx.type === 'expense') return sum - Math.abs(tx.amount)
+        return sum
+      }, 0)
+      return { key, label: key, value: monthNet, drilldown: { transactionIds: monthTransactions.map(tx => tx.id) } }
+    })
+    const assets = filteredAccounts.filter(a => a.balance >= 0).reduce((s, a) => s + a.balance, 0)
+    const liabilities = Math.abs(filteredAccounts.filter(a => a.balance < 0).reduce((s, a) => s + a.balance, 0))
+    const byType: Record<string, number> = {}
+    filteredAccounts.forEach(account => {
+      byType[account.type] = (byType[account.type] ?? 0) + account.balance
+    })
+    const owner1 = filteredAccounts.reduce((sum, account) => {
+      const allocation = account.ownershipAllocation.find(o => o.ownerId === 'o1')?.percentage ?? 0
+      return sum + account.balance * (allocation / 100)
+    }, 0)
+    const owner2 = filteredAccounts.reduce((sum, account) => {
+      const allocation = account.ownershipAllocation.find(o => o.ownerId === 'o2')?.percentage ?? 0
+      return sum + account.balance * (allocation / 100)
+    }, 0)
+    const liabilitiesByAccount: Record<string, number> = {}
+    filteredAccounts.filter(a => a.balance < 0).forEach(a => {
+      liabilitiesByAccount[a.displayName] = Math.abs(a.balance)
+    })
+    return delay<NetWorthDashboardData>({
+      netWorthOverTime,
+      assetsVsLiabilities: [
+        { key: 'assets', label: 'Assets', value: assets, drilldown: { accountIds: filteredAccounts.filter(a => a.balance >= 0).map(a => a.id) } },
+        { key: 'liabilities', label: 'Liabilities', value: liabilities, drilldown: { accountIds: filteredAccounts.filter(a => a.balance < 0).map(a => a.id) } },
+      ],
+      netWorthBreakdown: asChartPoints(byType),
+      ownershipAdjustedNetWorth: [
+        { key: 'owner1', label: 'Owner 1', value: owner1 },
+        { key: 'owner2', label: 'Owner 2', value: owner2 },
+      ],
+      accountBalanceTrend: asChartPoints(Object.fromEntries(filteredAccounts.map(a => [a.displayName, a.balance]))),
+      manualAssetValuationTrend: asChartPoints(Object.fromEntries(filteredAccounts.filter(a => a.type === 'manual_asset').map(a => [a.displayName, a.balance]))),
+      liabilityTrend: asChartPoints(liabilitiesByAccount),
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getBudgetDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const budgetItems = budgets.flatMap(b => b.items)
+    const budgetVsActual = budgetItems.map(item => ({
+      key: item.category,
+      label: item.category,
+      value: item.plannedAmount,
+      secondaryValue: item.actualAmount,
+      tertiaryValue: item.plannedAmount - item.actualAmount,
+    }))
+    const utilization = budgetItems.map(item => ({
+      key: item.category,
+      label: item.category,
+      value: item.plannedAmount > 0 ? (item.actualAmount / item.plannedAmount) * 100 : 0,
+      drilldown: { transactionIds: filteredTransactions.filter(tx => tx.category === item.category).map(tx => tx.id) },
+    }))
+    const overrun = [...budgetVsActual]
+      .map(item => ({ ...item, value: Math.max(0, -(item.tertiaryValue ?? 0)) }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+    const dailySpend = filteredTransactions
+      .filter(tx => tx.type === 'expense')
+      .reduce<Record<string, number>>((acc, tx) => {
+        acc[tx.date] = (acc[tx.date] ?? 0) + Math.abs(tx.amount)
+        return acc
+      }, {})
+    let remaining = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0)
+    const burndown = Object.entries(dailySpend)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => {
+        remaining -= amount
+        return { key: date, label: date, value: remaining }
+      })
+    const fixedBudget = budgetItems.filter(item => ['Housing', 'Utilities', 'Transport'].includes(item.category)).reduce((sum, item) => sum + item.plannedAmount, 0)
+    const variableBudget = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0) - fixedBudget
+    return delay<BudgetDashboardData>({
+      budgetVsActual,
+      budgetVarianceTrend: budgetVsActual,
+      budgetUtilization: utilization,
+      categoryOverrunRanking: overrun,
+      remainingBudgetBurndown: burndown,
+      flexibleVsFixedSplit: [
+        { key: 'fixed', label: 'Fixed', value: fixedBudget },
+        { key: 'flexible', label: 'Flexible', value: variableBudget },
+      ],
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
+  }
+
+  getLoanDashboard(filters?: DashboardFiltersInput) {
+    const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
+    const loans = filteredAccounts.filter(a => a.type === 'loan' || a.type === 'mortgage' || a.type === 'credit_card')
+    const debtByLoan: Record<string, number> = {}
+    loans.forEach(loan => {
+      debtByLoan[loan.displayName] = Math.abs(loan.balance)
+    })
+    const monthlyDebt: Record<string, number> = {}
+    filteredTransactions.forEach(tx => {
+      if (tx.type === 'loan_payment' || (tx.type === 'expense' && tx.category === 'Housing')) {
+        const key = monthKey(tx.date)
+        monthlyDebt[key] = (monthlyDebt[key] ?? 0) + Math.abs(tx.amount)
+      }
+    })
+    const debtTotal = loans.reduce((sum, loan) => sum + Math.abs(loan.balance), 0)
+    const assetsTotal = filteredAccounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0)
+    const debtToAssets = assetsTotal > 0 ? debtTotal / assetsTotal : 0
+    return delay<LoanDashboardData>({
+      debtBalanceOverTime: asChartPoints(monthlyDebt),
+      debtBreakdown: asChartPoints(debtByLoan),
+      principalVsInterest: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value]) => [key, value * 0.65]))).map((point) => ({
+        ...point,
+        secondaryValue: monthlyDebt[point.key] * 0.35,
+      })),
+      payoffTimeline: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, Math.max(0, debtTotal - ((index + 1) * value))]))),
+      interestCostProjection: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, value * (index + 1) * 0.15]))),
+      extraPaymentImpact: [
+        { key: 'base', label: 'Base', value: debtTotal },
+        { key: 'accelerated', label: 'Accelerated', value: debtTotal * 0.9 },
+      ],
+      debtStrategyComparison: [
+        { key: 'avalanche', label: 'Avalanche', value: debtTotal * 0.88 },
+        { key: 'snowball', label: 'Snowball', value: debtTotal * 0.91 },
+      ],
+      debtToAssetsRatio: [{ key: 'ratio', label: 'Debt / Assets', value: debtToAssets * 100 }],
+      dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
+    })
   }
 }
 
