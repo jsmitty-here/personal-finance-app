@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/api-client'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
+import { matchesCategoryTreeFilter } from '@/lib/category-filter'
 
 const TRANSACTION_TABLE_COLUMNS = ['Date', 'Description', 'Merchant', 'Account', 'Category', 'Tags', 'Type', 'Rule Match', 'Amount', 'Actions'] as const
 
@@ -127,12 +128,7 @@ export function TransactionsPage() {
   const filteredTransactions = useMemo(() => transactions.filter((tx) => {
     const account = accounts.find(a => a.id === tx.accountId)
     if (ownerFilter !== 'all' && !account?.ownershipAllocation.some(o => o.ownerId === ownerFilter)) return false
-    const hasCategoryFilters = categoryFilters.length > 0 || subcategoryFilters.length > 0
-    if (hasCategoryFilters) {
-      const categoryMatch = tx.category ? categoryFilters.includes(tx.category) : false
-      const subcategoryMatch = tx.subcategory ? subcategoryFilters.includes(tx.subcategory) : false
-      if (!categoryMatch && !subcategoryMatch) return false
-    }
+    if (!matchesCategoryTreeFilter(tx.category, tx.subcategory, categoryFilters, subcategoryFilters)) return false
     if (tagFilter !== 'all' && !tx.tags.includes(tagFilter)) return false
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false
     return true

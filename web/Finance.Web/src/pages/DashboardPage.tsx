@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/stub-client'
 import { useTheme } from '@/context/useTheme'
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Wallet, Landmark, CircleDollarSign } from 'lucide-react'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
+import { matchesCategoryTreeFilter } from '@/lib/category-filter'
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6']
 
@@ -84,12 +85,7 @@ export function DashboardPage() {
     return transactions.filter((tx) => {
       if (accountId !== 'all' && tx.accountId !== accountId) return false
       if (txType !== 'all' && tx.type !== txType) return false
-      const hasCategoryFilters = categoryFilters.length > 0 || subcategoryFilters.length > 0
-      if (hasCategoryFilters) {
-        const categoryMatch = tx.category ? categoryFilters.includes(tx.category) : false
-        const subcategoryMatch = tx.subcategory ? subcategoryFilters.includes(tx.subcategory) : false
-        if (!categoryMatch && !subcategoryMatch) return false
-      }
+      if (!matchesCategoryTreeFilter(tx.category, tx.subcategory, categoryFilters, subcategoryFilters)) return false
       if (tag !== 'all' && !tx.tags.includes(tag)) return false
       if (dateFrom && tx.date < dateFrom) return false
       if (dateTo && tx.date > dateTo) return false

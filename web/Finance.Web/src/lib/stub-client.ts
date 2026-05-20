@@ -117,7 +117,9 @@ function generateSyntheticFinancialData() {
   }
 
   const latestMonthKey = formatDate(new Date()).slice(0, 7)
-  const splitBase = generatedTransactions.find(tx => tx.type === 'expense' && tx.category === 'Food' && tx.date.startsWith(latestMonthKey))
+  const splitBase = generatedTransactions
+    .filter(tx => tx.type === 'expense' && tx.category === 'Food' && tx.date.startsWith(latestMonthKey))
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0]
   if (splitBase) {
     splitBase.isManualOverride = true
     splitBase.splits = [
