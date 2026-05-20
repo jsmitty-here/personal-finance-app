@@ -176,7 +176,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
     return delay<CashFlowSummary>({ income, expenses, net: income - expenses, period });
   }
-  getSpendingByCategory(period: string, _ownerId?: string) {
+  getSpendingByCategory(_period: string, _ownerId?: string) {
     const byCategory: Record<string, number> = {};
     transactions.filter(t => t.type === 'expense').forEach(t => {
       const cat = t.category ?? 'Uncategorized';
@@ -186,7 +186,6 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const result: SpendingByCategory[] = Object.entries(byCategory).map(([category, amount]) => ({
       category, amount, percentage: total > 0 ? (amount / total) * 100 : 0,
     }));
-    void period;
     return delay(result);
   }
 }
