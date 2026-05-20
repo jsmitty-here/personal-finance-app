@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule, Transaction, TransactionSplit } from '@/lib/api-client'
@@ -11,6 +11,8 @@ function fmt(n: number) {
 
 export function TransactionsPage() {
   const qc = useQueryClient()
+  const overrideSectionRef = useRef<HTMLDivElement>(null)
+  const splitSectionRef = useRef<HTMLDivElement>(null)
   const [accountFilter, setAccountFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -149,6 +151,24 @@ export function TransactionsPage() {
       })
     if (rows.length > 0) splitMutation.mutate({ id: tx.id, splits: rows })
   }
+
+  useEffect(() => {
+    if (!editingTxId) return
+    const frame = requestAnimationFrame(() => {
+      const section = overrideSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editingTxId])
+
+  useEffect(() => {
+    if (!splitTxId) return
+    const frame = requestAnimationFrame(() => {
+      const section = splitSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [splitTxId])
 
   return (
     <div className="space-y-6">
@@ -312,7 +332,7 @@ export function TransactionsPage() {
       </div>
 
       {editingTxId && (
-        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <div ref={overrideSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Manual override</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value)}>
@@ -330,7 +350,7 @@ export function TransactionsPage() {
       )}
 
       {splitTxId && (
-        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <div ref={splitSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Split transaction</h3>
           <div className="flex items-center gap-3">
             <label className="text-sm text-muted-foreground">Mode</label>

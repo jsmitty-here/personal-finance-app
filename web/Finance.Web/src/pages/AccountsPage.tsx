@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/stub-client'
 import type { Account } from '@/lib/api-client'
@@ -23,6 +23,7 @@ const ACCOUNT_TABLE_COLUMNS = ['Account', 'Institution', 'Type', 'Connection Hea
 
 export function AccountsPage() {
   const qc = useQueryClient()
+  const editSectionRef = useRef<HTMLDivElement>(null)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -107,6 +108,15 @@ export function AccountsPage() {
     setIncludeInBudgeting(account.includeInBudgeting)
     setIncludeInTaxPlanning(account.includeInTaxPlanning)
   }
+
+  useEffect(() => {
+    if (!editingId) return
+    const frame = requestAnimationFrame(() => {
+      const section = editSectionRef.current
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editingId])
 
   return (
     <div className="space-y-6">
@@ -244,7 +254,7 @@ export function AccountsPage() {
       </div>
 
       {editingId && (
-        <div className="bg-card rounded-lg border border-border p-4 space-y-3">
+        <div ref={editSectionRef} className="bg-card rounded-lg border border-border p-4 space-y-3">
           <h3 className="text-base font-semibold text-foreground">Edit account metadata</h3>
           <input className="w-full border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={displayName} onChange={e => setDisplayName(e.target.value)} />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-sm">
