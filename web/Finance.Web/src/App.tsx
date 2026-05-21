@@ -18,6 +18,7 @@ import { IncomeDashboardPage } from '@/pages/IncomeDashboardPage'
 import { TaxesDashboardPage } from '@/pages/TaxesDashboardPage'
 import { PlanningDashboardPage } from '@/pages/PlanningDashboardPage'
 import { ReviewDashboardPage } from '@/pages/ReviewDashboardPage'
+import { AdvisorDashboardPage } from '@/pages/AdvisorDashboardPage'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           )}
         >
           <Route index element={<Navigate to="/dashboard/overview" replace />} />
+          <Route path="advisor" element={<AdvisorDashboardPage />} />
           <Route path="overview" element={<OverviewDashboardPage />} />
           <Route path="net-worth" element={<NetWorthDashboardPage />} />
           <Route path="spending" element={<SpendingDashboardPage />} />

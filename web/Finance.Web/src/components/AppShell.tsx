@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
+  ShieldAlert,
   Wallet,
   ArrowLeftRight,
   ListFilter,
@@ -23,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navItems = [
+  { to: '/dashboard/advisor', label: 'Advisor', icon: ShieldAlert },
   { to: '/dashboard/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/dashboard/net-worth', label: 'Net Worth', icon: Landmark },
   { to: '/dashboard/spending', label: 'Spending', icon: ChartPie },
