@@ -1,29 +1,31 @@
-import { useEffect, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { cn } from '@/lib/utils'
 import {
-  LayoutDashboard,
-  ShieldAlert,
-  Wallet,
   ArrowLeftRight,
-  ListFilter,
-  PiggyBank,
-  TrendingUp,
-  Landmark,
   ChartPie,
-  HandCoins,
-  ReceiptText,
   CheckSquare,
-  Target,
-  Settings,
+  ChevronDown,
+  ChevronRight,
+  HandCoins,
+  Landmark,
+  LayoutDashboard,
+  ListFilter,
   Menu,
-  X,
   PanelLeftClose,
   PanelLeftOpen,
+  PiggyBank,
+  ReceiptText,
+  Settings,
+  ShieldAlert,
+  Target,
+  TrendingUp,
+  Wallet,
+  X,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 
-const navItems = [
+const dashboardNavItems = [
   { to: '/dashboard/advisor', label: 'Advisor', icon: ShieldAlert },
   { to: '/dashboard/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/dashboard/net-worth', label: 'Net Worth', icon: Landmark },
@@ -35,6 +37,9 @@ const navItems = [
   { to: '/dashboard/taxes', label: 'Taxes', icon: ReceiptText },
   { to: '/dashboard/planning', label: 'Planning', icon: Target },
   { to: '/dashboard/review', label: 'Review', icon: CheckSquare },
+]
+
+const navItems = [
   { to: '/accounts', label: 'Accounts', icon: Wallet },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/rules', label: 'Rules', icon: ListFilter },
@@ -48,14 +53,27 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const location = useLocation()
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [isDashboardExpanded, setIsDashboardExpanded] = useState(true)
   const mobileSidebarRef = useRef<HTMLElement>(null)
   const mobileCloseButtonRef = useRef<HTMLButtonElement>(null)
+  const isDashboardRoute = location.pathname.startsWith('/dashboard')
 
   useEffect(() => {
     if (isMobileSidebarOpen) mobileCloseButtonRef.current?.focus()
   }, [isMobileSidebarOpen])
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (isDashboardRoute) {
+      setIsDashboardExpanded(true)
+    }
+  }, [isDashboardRoute])
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -64,6 +82,71 @@ export function AppShell({ children }: AppShellProps) {
         ? 'bg-primary-subtle text-primary-subtle-foreground'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
     )
+
+  const childNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+      isActive
+        ? 'bg-primary-subtle text-primary-subtle-foreground shadow-sm'
+        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+    )
+
+  const treeButtonClass = cn(
+    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    isDashboardRoute
+      ? 'bg-primary-subtle text-primary-subtle-foreground'
+      : 'text-foreground hover:bg-muted',
+  )
+
+  const renderNavItems = (onNavigate?: () => void) => (
+    <>
+      {isDesktopCollapsed && !onNavigate ? (
+        <NavLink to="/dashboard/overview" className={navLinkClass} title="Dashboard">
+          <LayoutDashboard size={16} />
+        </NavLink>
+      ) : (
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => setIsDashboardExpanded((value) => !value)}
+            className={treeButtonClass}
+            aria-expanded={isDashboardExpanded}
+            aria-controls={onNavigate ? 'mobile-dashboard-nav-group' : 'desktop-dashboard-nav-group'}
+          >
+            <LayoutDashboard size={16} />
+            <span className="flex-1 text-left">Dashboard</span>
+            {isDashboardExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          {isDashboardExpanded ? (
+            <div
+              id={onNavigate ? 'mobile-dashboard-nav-group' : 'desktop-dashboard-nav-group'}
+              className="ml-4 space-y-1 border-l border-border pl-3"
+            >
+              {dashboardNavItems.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={childNavLinkClass}
+                  title={label}
+                  onClick={onNavigate}
+                >
+                  <Icon size={15} />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {navItems.map(({ to, label, icon: Icon }) => (
+        <NavLink key={to} to={to} className={navLinkClass} title={label} onClick={onNavigate}>
+          <Icon size={16} />
+          {(!isDesktopCollapsed || onNavigate) && label}
+        </NavLink>
+      ))}
+    </>
+  )
 
   const handleMobileSidebarKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') {
@@ -129,14 +212,7 @@ export function AppShell({ children }: AppShellProps) {
             </button>
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={navLinkClass} title={label}>
-              <Icon size={16} />
-              {!isDesktopCollapsed && label}
-            </NavLink>
-          ))}
-        </nav>
+        <nav className="scrollbar-hidden flex-1 space-y-2 overflow-y-auto px-3 py-4">{renderNavItems()}</nav>
         <div className="px-3 py-3 border-t border-border">
           <ThemeToggle collapsed={isDesktopCollapsed} />
         </div>
@@ -196,18 +272,8 @@ export function AppShell({ children }: AppShellProps) {
               <X size={16} />
             </button>
           </div>
-          <nav className="flex-1 px-3 py-4 space-y-1">
-            {navItems.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={navLinkClass}
-                onClick={() => setIsMobileSidebarOpen(false)}
-              >
-                <Icon size={16} />
-                {label}
-              </NavLink>
-            ))}
+          <nav className="scrollbar-hidden flex-1 space-y-2 overflow-y-auto px-3 py-4">
+            {renderNavItems(() => setIsMobileSidebarOpen(false))}
           </nav>
           <div className="px-3 py-3 border-t border-border">
             <ThemeToggle />

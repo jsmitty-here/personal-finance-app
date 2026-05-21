@@ -1,26 +1,14 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { apiClient } from '@/lib/stub-client'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
+import { getCategoryPresentation } from '@/lib/api-client'
 import { matchesCategoryTreeFilter } from '@/lib/category-filter'
+import { apiClient } from '@/lib/stub-client'
+import { useQuery } from '@tanstack/react-query'
+import { Tag } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
-}
-
-function formatCategoryPath(
-  categoryIconByName: Record<string, string>,
-  subcategoryIconByName: Record<string, string>,
-  category?: string,
-  subcategory?: string,
-  subSubcategory?: string,
-) {
-  if (!category) return '—'
-  const categoryLabel = `${categoryIconByName[category] ? `${categoryIconByName[category]} ` : ''}${category}`
-  const subcategoryLabel = subcategory ? `${subcategoryIconByName[subcategory] ? `${subcategoryIconByName[subcategory]} ` : ''}${subcategory}` : ''
-  const subSubcategoryLabel = subSubcategory ?? ''
-  return [categoryLabel, subcategoryLabel, subSubcategoryLabel].filter(Boolean).join(' / ')
 }
 
 export function TransactionsPage() {
@@ -61,10 +49,6 @@ export function TransactionsPage() {
   const accountMap = Object.fromEntries(accounts.map(a => [a.id, a.displayName]))
 
   const tagOptions = Array.from(new Set(transactions.flatMap(tx => tx.tags))).sort()
-  const categoryIconByName = Object.fromEntries(categoryTaxonomy.map(category => [category.name, category.icon]))
-  const subcategoryIconByName = Object.fromEntries(
-    categoryTaxonomy.flatMap(category => category.subcategories.map(subcategory => [subcategory.name, subcategory.icon])),
-  )
   const typeOptions = Array.from(new Set(transactions.map(tx => tx.type)))
 
   const filteredTransactions = useMemo(() => transactions.filter((tx) => {
@@ -153,31 +137,48 @@ export function TransactionsPage() {
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">No transactions found for current filters.</p>
         ) : (
           filteredTransactions.map(tx => (
-            <Link
-              key={tx.id}
-              to={`/transactions/${tx.id}`}
-              className="group block px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {tx.description}
-                    {tx.isManualOverride ? <span className="ml-2 text-[10px] text-info">manual</span> : null}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {tx.date} · {accountMap[tx.accountId] ?? tx.accountId} · {tx.merchant ?? 'No merchant'}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {formatCategoryPath(categoryIconByName, subcategoryIconByName, tx.category, tx.subcategory, tx.subSubcategory)}
-                    {tx.tags.length ? ` · ${tx.tags.join(', ')}` : ''}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(tx.amount)}</p>
-                  <p className="text-xs text-primary group-hover:underline">View details</p>
-                </div>
-              </div>
-            </Link>
+            (() => {
+              const presentation = getCategoryPresentation(categoryTaxonomy, tx.category, tx.subcategory)
+              const metadata = [
+                presentation.detailLabel,
+                accountMap[tx.accountId] ?? tx.accountId,
+                tx.merchant ?? 'No merchant',
+              ].join(' * ')
+
+              return (
+                <Link
+                  key={tx.id}
+                  to={`/transactions/${tx.id}`}
+                  className="group block px-4 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg shadow-sm"
+                      style={{ backgroundColor: presentation.color }}
+                    >
+                      <span aria-hidden="true">{presentation.icon}</span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {tx.description}
+                        {tx.isManualOverride ? <span className="ml-2 text-[10px] text-info">manual</span> : null}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{metadata}</p>
+                      <p className="truncate text-xs text-muted-foreground">{tx.date}</p>
+                    </div>
+
+                    <div className="ml-auto flex shrink-0 items-center gap-3 text-right">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-label={`${tx.tags.length} tags`}>
+                        <Tag size={13} />
+                        <span className="min-w-3 text-right">{tx.tags.length}</span>
+                      </div>
+                      <p className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(tx.amount)}</p>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })()
           ))
         )}
       </div>

@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts'
-import type { PieLabelRenderProps } from 'recharts'
-import { apiClient } from '@/lib/client'
-import { useTheme } from '@/context/useTheme'
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Wallet, Landmark, CircleDollarSign } from 'lucide-react'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
+import { useTheme } from '@/context/useTheme'
+import { getBudgetTotals } from '@/lib/api-client'
 import { matchesCategoryTreeFilter } from '@/lib/category-filter'
+import { apiClient } from '@/lib/client'
+import { useQuery } from '@tanstack/react-query'
+import { CircleDollarSign, DollarSign, Landmark, PiggyBank, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import type { PieLabelRenderProps } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6']
 
@@ -135,10 +136,7 @@ export function DashboardPage() {
   }, [filteredTransactions])
 
   const budgetVariance = useMemo(() => {
-    const budgetItems = budgets.flatMap(b => b.items)
-    const planned = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0)
-    const actual = budgetItems.reduce((sum, item) => sum + item.actualAmount, 0)
-    return { planned, actual, variance: planned - actual }
+    return getBudgetTotals(budgets.flatMap(b => b.items))
   }, [budgets])
 
   const tagOptions = Array.from(new Set(transactions.flatMap(t => t.tags))).sort()

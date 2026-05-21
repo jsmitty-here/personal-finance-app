@@ -4,13 +4,6 @@ const TRANSACTION_TYPES: TransactionType[] = [
   'income',
   'expense',
   'transfer',
-  'investment',
-  'loan_payment',
-  'fee',
-  'tax',
-  'refund',
-  'reimbursement',
-  'adjustment',
 ]
 
 export interface RuleEditorPrefillContext {

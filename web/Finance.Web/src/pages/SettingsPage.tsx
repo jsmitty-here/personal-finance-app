@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { TransactionType } from '@/lib/api-client'
 import { apiClient } from '@/lib/stub-client'
-import { Pencil, Check, X } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, Pencil, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 
 export function SettingsPage() {
   const qc = useQueryClient()
@@ -9,10 +10,12 @@ export function SettingsPage() {
   const [editName, setEditName] = useState<string>('')
   const [editColor, setEditColor] = useState<string>('#6366f1')
   const [ownershipHistoryMode, setOwnershipHistoryMode] = useState<'point-in-time' | 'historical-retrofit'>('point-in-time')
-  const [categoryEdits, setCategoryEdits] = useState<Record<string, { name: string; icon: string }>>({})
+  const [categoryEdits, setCategoryEdits] = useState<Record<string, { name: string; icon: string; color: string; transactionType: TransactionType }>>({})
   const [subcategoryEdits, setSubcategoryEdits] = useState<Record<string, { name: string; icon: string }>>({})
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
+  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1')
+  const [newCategoryType, setNewCategoryType] = useState<TransactionType>('expense')
   const [newSubcategoryByCategory, setNewSubcategoryByCategory] = useState<Record<string, { name: string; icon: string }>>({})
   const [expandedTaxonomyCategoryId, setExpandedTaxonomyCategoryId] = useState<string | null>(null)
 
@@ -35,16 +38,18 @@ export function SettingsPage() {
   })
 
   const createCategoryMutation = useMutation({
-    mutationFn: ({ name, icon }: { name: string; icon: string }) => apiClient.createCategory({ name, icon }),
+    mutationFn: ({ name, icon, color, transactionType }: { name: string; icon: string; color: string; transactionType: TransactionType }) => apiClient.createCategory({ name, icon, color, transactionType }),
     onSuccess: () => {
       setNewCategoryName('')
       setNewCategoryIcon('🏷️')
+      setNewCategoryColor('#6366f1')
+      setNewCategoryType('expense')
       void qc.invalidateQueries({ queryKey: ['category-taxonomy'] })
     },
   })
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ categoryId, name, icon }: { categoryId: string; name?: string; icon?: string }) => apiClient.updateCategory(categoryId, { name, icon }),
+    mutationFn: ({ categoryId, name, icon, color, transactionType }: { categoryId: string; name?: string; icon?: string; color?: string; transactionType?: TransactionType }) => apiClient.updateCategory(categoryId, { name, icon, color, transactionType }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
   })
 
@@ -63,7 +68,7 @@ export function SettingsPage() {
       Object.fromEntries(
         categoryTaxonomy.map(category => [
           category.id,
-          categoryEdits[category.id] ?? { name: category.name, icon: category.icon },
+          categoryEdits[category.id] ?? { name: category.name, icon: category.icon, color: category.color ?? '#6366f1', transactionType: category.transactionType },
         ]),
       ),
     [categoryEdits, categoryTaxonomy],
@@ -87,13 +92,21 @@ export function SettingsPage() {
     }
   }
 
-  function updateCategoryDraft(categoryId: string, field: 'name' | 'icon', value: string) {
+  function updateCategoryDraft(categoryId: string, field: 'name' | 'icon' | 'color' | 'transactionType', value: string) {
     setCategoryEdits(prev => {
       const current = prev[categoryId] ?? {
         name: categoryTaxonomy.find(category => category.id === categoryId)?.name ?? '',
         icon: categoryTaxonomy.find(category => category.id === categoryId)?.icon ?? '🏷️',
+        color: categoryTaxonomy.find(category => category.id === categoryId)?.color ?? '#6366f1',
+        transactionType: categoryTaxonomy.find(category => category.id === categoryId)?.transactionType ?? 'expense',
       }
-      return { ...prev, [categoryId]: { ...current, [field]: value } }
+      return {
+        ...prev,
+        [categoryId]: {
+          ...current,
+          [field]: field === 'transactionType' ? (value as TransactionType) : value,
+        },
+      }
     })
   }
 
@@ -225,22 +238,28 @@ export function SettingsPage() {
 
         <div className="bg-card rounded-lg border border-border p-5 space-y-3">
           <h3 className="font-semibold text-foreground">Category Taxonomy</h3>
-          <p className="text-sm text-muted-foreground">Choose categories and subcategories from dropdowns with icon labels, add new ones, and customize icon choices.</p>
+          <p className="text-sm text-muted-foreground">Choose categories and subcategories from dropdowns with icon labels, add new ones, and customize category colors and icon choices.</p>
           <div className="space-y-4">
             {isLoadingTaxonomy ? (
               <p className="text-sm text-muted-foreground">Loading taxonomy…</p>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground sm:col-span-2" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,2fr)_6rem_4rem_minmax(0,1fr)]">
+                  <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
                   <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Icon (emoji)" value={newCategoryIcon} onChange={e => setNewCategoryIcon(e.target.value)} />
+                  <input type="color" className="h-10 w-full rounded-md border border-input bg-card p-1" value={newCategoryColor} onChange={e => setNewCategoryColor(e.target.value)} aria-label="New category color" />
+                  <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={newCategoryType} onChange={e => setNewCategoryType(e.target.value as TransactionType)}>
+                    <option value="expense">expense</option>
+                    <option value="income">income</option>
+                    <option value="transfer">transfer</option>
+                  </select>
                 </div>
                 <div className="flex justify-end">
-                  <button type="button" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!newCategoryName.trim()} onClick={() => createCategoryMutation.mutate({ name: newCategoryName.trim(), icon: newCategoryIcon.trim() || '🏷️' })}>Add category</button>
+                  <button type="button" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!newCategoryName.trim()} onClick={() => createCategoryMutation.mutate({ name: newCategoryName.trim(), icon: newCategoryIcon.trim() || '🏷️', color: newCategoryColor, transactionType: newCategoryType })}>Add category</button>
                 </div>
                 <div className="space-y-2">
                   {categoryTaxonomy.map(category => {
-                    const draft = categoryDrafts[category.id] ?? { name: category.name, icon: category.icon }
+                    const draft = categoryDrafts[category.id] ?? { name: category.name, icon: category.icon, color: category.color ?? '#6366f1', transactionType: category.transactionType }
                     const newSubcategory = newSubcategoryByCategory[category.id] ?? { name: '', icon: '📂' }
                     const isExpanded = expandedTaxonomyCategoryId === category.id
                     return (
@@ -256,11 +275,27 @@ export function SettingsPage() {
                             value={draft.name}
                             onChange={e => updateCategoryDraft(category.id, 'name', e.target.value)}
                           />
+                          <input
+                            type="color"
+                            className="h-10 w-12 rounded-md border border-input bg-card p-1"
+                            value={draft.color}
+                            onChange={e => updateCategoryDraft(category.id, 'color', e.target.value)}
+                            aria-label={`${category.name} color`}
+                          />
+                          <select
+                            className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground"
+                            value={draft.transactionType}
+                            onChange={e => updateCategoryDraft(category.id, 'transactionType', e.target.value)}
+                          >
+                            <option value="expense">expense</option>
+                            <option value="income">income</option>
+                            <option value="transfer">transfer</option>
+                          </select>
                           <button
                             type="button"
                             className="rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50"
                             disabled={!draft.name.trim()}
-                            onClick={() => updateCategoryMutation.mutate({ categoryId: category.id, name: draft.name.trim(), icon: draft.icon.trim() || '🏷️' })}
+                            onClick={() => updateCategoryMutation.mutate({ categoryId: category.id, name: draft.name.trim(), icon: draft.icon.trim() || '🏷️', color: draft.color, transactionType: draft.transactionType })}
                           >
                             Save
                           </button>

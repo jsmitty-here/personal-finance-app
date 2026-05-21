@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Outlet } from 'react-router-dom'
-import { apiClient } from '@/lib/client'
-import type { Account, DashboardFiltersInput, Owner, TransactionType } from '@/lib/api-client'
 import { CategoryTreeMultiSelect } from '@/components/CategoryTreeMultiSelect'
 import { validateDashboardFilters } from '@/features/dashboards/validation'
+import type { Account, DashboardFiltersInput, Owner, TransactionType } from '@/lib/api-client'
+import { apiClient } from '@/lib/client'
+import { useQuery } from '@tanstack/react-query'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Outlet } from 'react-router-dom'
 
 export type DashboardPeriod = NonNullable<DashboardFiltersInput['period']>
 export type OwnershipView = NonNullable<DashboardFiltersInput['ownershipView']>
@@ -144,13 +144,6 @@ export function DashboardRouteLayout() {
             <option value="income">income</option>
             <option value="expense">expense</option>
             <option value="transfer">transfer</option>
-            <option value="investment">investment</option>
-            <option value="loan_payment">loan_payment</option>
-            <option value="fee">fee</option>
-            <option value="tax">tax</option>
-            <option value="refund">refund</option>
-            <option value="reimbursement">reimbursement</option>
-            <option value="adjustment">adjustment</option>
           </select>
           <div>
             <CategoryTreeMultiSelect

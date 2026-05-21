@@ -1,11 +1,33 @@
 import type {
-  IFinanceApiClient, Owner, Account, Transaction, CategorizationRule,
-  Budget, NetWorthSummary, CashFlowSummary, SpendingByCategory,
-  TransactionSplit, CategoryDefinition, SubcategoryDefinition,
-  DashboardFiltersInput, DataQualityFlags, OverviewDashboardData,
-  SpendingDashboardData, NetWorthDashboardData, BudgetDashboardData,
-  LoanDashboardData, InvestmentsDashboardData, IncomeDashboardData,
-  TaxesDashboardData, PlanningDashboardData, ReviewDashboardData, ChartPoint,
+    Account,
+    Budget,
+    BudgetDashboardData,
+    CashFlowSummary,
+    CategorizationRule,
+    CategoryDefinition,
+    ChartPoint,
+    DashboardFiltersInput, DataQualityFlags,
+    IFinanceApiClient,
+    IncomeDashboardData,
+    InvestmentsDashboardData,
+    LoanDashboardData,
+    NetWorthDashboardData,
+    NetWorthSummary,
+    OverviewDashboardData,
+    Owner,
+    PlanningDashboardData, ReviewDashboardData,
+    SpendingByCategory,
+    SpendingDashboardData,
+    SubcategoryDefinition,
+    TaxesDashboardData,
+    Transaction,
+    TransactionSplit,
+} from './api-client';
+import {
+    getBudgetTotals,
+    getDefaultCategoryColor,
+    getTopLevelBudgetItems,
+    normalizeBudgetHierarchy,
 } from './api-client';
 
 // --- Stub Data ---
@@ -16,16 +38,16 @@ const owners: Owner[] = [
 ];
 
 const categoryTaxonomy: CategoryDefinition[] = [
-  { id: 'cat-food', name: 'Food', icon: '🍽️', subcategories: [{ id: 'sub-food-groceries', name: 'Groceries', icon: '🛒' }, { id: 'sub-food-dining', name: 'Dining Out', icon: '🍜' }, { id: 'sub-food-coffee', name: 'Coffee', icon: '☕' }] },
-  { id: 'cat-housing', name: 'Housing', icon: '🏠', subcategories: [{ id: 'sub-housing-rent', name: 'Rent / Mortgage', icon: '🏡' }, { id: 'sub-housing-maintenance', name: 'Maintenance', icon: '🧰' }, { id: 'sub-housing-furnishings', name: 'Furnishings', icon: '🛋️' }] },
-  { id: 'cat-utilities', name: 'Utilities', icon: '💡', subcategories: [{ id: 'sub-utilities-electric', name: 'Electric', icon: '⚡' }, { id: 'sub-utilities-gas', name: 'Gas', icon: '🔥' }, { id: 'sub-utilities-water', name: 'Water', icon: '🚿' }, { id: 'sub-utilities-internet', name: 'Internet', icon: '🌐' }] },
-  { id: 'cat-transport', name: 'Transport', icon: '🚗', subcategories: [{ id: 'sub-transport-fuel', name: 'Fuel', icon: '⛽' }, { id: 'sub-transport-transit', name: 'Public Transit', icon: '🚆' }, { id: 'sub-transport-ride', name: 'Rideshare', icon: '🚕' }] },
-  { id: 'cat-health', name: 'Health', icon: '🩺', subcategories: [{ id: 'sub-health-medical', name: 'Medical', icon: '🧑‍⚕️' }, { id: 'sub-health-pharmacy', name: 'Pharmacy', icon: '💊' }, { id: 'sub-health-fitness', name: 'Fitness', icon: '🏋️' }] },
-  { id: 'cat-entertainment', name: 'Entertainment', icon: '🎬', subcategories: [{ id: 'sub-entertainment-streaming', name: 'Streaming', icon: '📺' }, { id: 'sub-entertainment-games', name: 'Games', icon: '🎮' }, { id: 'sub-entertainment-events', name: 'Events', icon: '🎟️' }] },
-  { id: 'cat-personal', name: 'Personal', icon: '🧍', subcategories: [{ id: 'sub-personal-clothing', name: 'Clothing', icon: '👕' }, { id: 'sub-personal-care', name: 'Personal Care', icon: '🧴' }, { id: 'sub-personal-other', name: 'Other', icon: '📦' }] },
-  { id: 'cat-household', name: 'Household', icon: '🧹', subcategories: [{ id: 'sub-household-supplies', name: 'Supplies', icon: '🧼' }, { id: 'sub-household-pets', name: 'Pets', icon: '🐾' }] },
-  { id: 'cat-income', name: 'Income', icon: '💰', subcategories: [{ id: 'sub-income-salary', name: 'Salary', icon: '💵' }, { id: 'sub-income-bonus', name: 'Bonus', icon: '🎉' }, { id: 'sub-income-interest', name: 'Interest', icon: '🏦' }] },
-  { id: 'cat-savings', name: 'Savings & Investments', icon: '📈', subcategories: [{ id: 'sub-savings-brokerage', name: 'Brokerage', icon: '📊' }, { id: 'sub-savings-retirement', name: 'Retirement', icon: '🧓' }, { id: 'sub-savings-emergency', name: 'Emergency Fund', icon: '🛟' }] },
+  { id: 'cat-food', name: 'Food', icon: '🍽️', color: getDefaultCategoryColor('Food'), transactionType: 'expense', subcategories: [{ id: 'sub-food-groceries', name: 'Groceries', icon: '🛒' }, { id: 'sub-food-dining', name: 'Dining Out', icon: '🍜' }, { id: 'sub-food-coffee', name: 'Coffee', icon: '☕' }] },
+  { id: 'cat-housing', name: 'Housing', icon: '🏠', color: getDefaultCategoryColor('Housing'), transactionType: 'expense', subcategories: [{ id: 'sub-housing-rent', name: 'Rent / Mortgage', icon: '🏡' }, { id: 'sub-housing-maintenance', name: 'Maintenance', icon: '🧰' }, { id: 'sub-housing-furnishings', name: 'Furnishings', icon: '🛋️' }] },
+  { id: 'cat-utilities', name: 'Utilities', icon: '💡', color: getDefaultCategoryColor('Utilities'), transactionType: 'expense', subcategories: [{ id: 'sub-utilities-electric', name: 'Electric', icon: '⚡' }, { id: 'sub-utilities-gas', name: 'Gas', icon: '🔥' }, { id: 'sub-utilities-water', name: 'Water', icon: '🚿' }, { id: 'sub-utilities-internet', name: 'Internet', icon: '🌐' }] },
+  { id: 'cat-transport', name: 'Transport', icon: '🚗', color: getDefaultCategoryColor('Transport'), transactionType: 'expense', subcategories: [{ id: 'sub-transport-fuel', name: 'Fuel', icon: '⛽' }, { id: 'sub-transport-transit', name: 'Public Transit', icon: '🚆' }, { id: 'sub-transport-ride', name: 'Rideshare', icon: '🚕' }] },
+  { id: 'cat-health', name: 'Health', icon: '🩺', color: getDefaultCategoryColor('Health'), transactionType: 'expense', subcategories: [{ id: 'sub-health-medical', name: 'Medical', icon: '🧑‍⚕️' }, { id: 'sub-health-pharmacy', name: 'Pharmacy', icon: '💊' }, { id: 'sub-health-fitness', name: 'Fitness', icon: '🏋️' }] },
+  { id: 'cat-entertainment', name: 'Entertainment', icon: '🎬', color: getDefaultCategoryColor('Entertainment'), transactionType: 'expense', subcategories: [{ id: 'sub-entertainment-streaming', name: 'Streaming', icon: '📺' }, { id: 'sub-entertainment-games', name: 'Games', icon: '🎮' }, { id: 'sub-entertainment-events', name: 'Events', icon: '🎟️' }] },
+  { id: 'cat-personal', name: 'Personal', icon: '🧍', color: getDefaultCategoryColor('Personal'), transactionType: 'expense', subcategories: [{ id: 'sub-personal-clothing', name: 'Clothing', icon: '👕' }, { id: 'sub-personal-care', name: 'Personal Care', icon: '🧴' }, { id: 'sub-personal-other', name: 'Other', icon: '📦' }] },
+  { id: 'cat-household', name: 'Household', icon: '🧹', color: getDefaultCategoryColor('Household'), transactionType: 'expense', subcategories: [{ id: 'sub-household-supplies', name: 'Supplies', icon: '🧼' }, { id: 'sub-household-pets', name: 'Pets', icon: '🐾' }] },
+  { id: 'cat-income', name: 'Income', icon: '💰', color: getDefaultCategoryColor('Income'), transactionType: 'income', subcategories: [{ id: 'sub-income-salary', name: 'Salary', icon: '💵' }, { id: 'sub-income-bonus', name: 'Bonus', icon: '🎉' }, { id: 'sub-income-interest', name: 'Interest', icon: '🏦' }] },
+  { id: 'cat-savings', name: 'Savings & Investments', icon: '📈', color: getDefaultCategoryColor('Savings & Investments'), transactionType: 'transfer', subcategories: [{ id: 'sub-savings-brokerage', name: 'Brokerage', icon: '📊' }, { id: 'sub-savings-retirement', name: 'Retirement', icon: '🧓' }, { id: 'sub-savings-emergency', name: 'Emergency Fund', icon: '🛟' }] },
 ];
 
 function createSeededRandom(seed: number) {
@@ -108,8 +130,8 @@ function generateSyntheticFinancialData() {
       { id: nextTxId(), accountId: 'a1', date: day(5), amount: -withJitter(52, 0.02, random), description: 'NETFLIX.COM', merchant: 'Netflix', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
       { id: nextTxId(), accountId: 'a1', date: day(6), amount: -withJitter(16, 0.03, random), description: 'SPOTIFY', merchant: 'Spotify', type: 'expense', category: 'Entertainment', subcategory: 'Streaming', tags: ['Subscription'], isManualOverride: false },
       { id: nextTxId(), accountId: 'a1', date: day(18), amount: -withJitter(42, 0.25, random), description: 'TARGET #315', merchant: 'Target', type: 'expense', category: 'Household', subcategory: 'Supplies', tags: ['Household'], isManualOverride: false },
-      { id: nextTxId(), accountId: 'a1', date: day(20), amount: -withJitter(750, 0.05, random), description: '401K CONTRIBUTION', merchant: undefined, type: 'investment', category: 'Savings & Investments', subcategory: 'Retirement', tags: ['Investment'], isManualOverride: false },
-      { id: nextTxId(), accountId: 'a1', date: day(21), amount: -withJitter(500, 0.06, random), description: 'BROKERAGE TRANSFER', merchant: 'Schwab', type: 'investment', category: 'Savings & Investments', subcategory: 'Brokerage', tags: ['Investment'], isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(20), amount: -withJitter(750, 0.05, random), description: '401K CONTRIBUTION', merchant: undefined, type: 'transfer', category: 'Savings & Investments', subcategory: 'Retirement', tags: ['Investment'], isInvestmentTransfer: true, isManualOverride: false },
+      { id: nextTxId(), accountId: 'a1', date: day(21), amount: -withJitter(500, 0.06, random), description: 'BROKERAGE TRANSFER', merchant: 'Schwab', type: 'transfer', category: 'Savings & Investments', subcategory: 'Brokerage', tags: ['Investment'], isInvestmentTransfer: true, isManualOverride: false },
       { id: nextTxId(), accountId: 'a5', date: day(26), amount: withJitter(82, 0.4, random), description: 'DIVIDEND PAYMENT', merchant: 'Schwab', type: 'income', category: 'Income', subcategory: 'Interest', tags: ['Investment Income'], isManualOverride: false },
     )
 
@@ -155,11 +177,11 @@ function generateSyntheticFinancialData() {
       name: `${monthLabel} Budget`,
       period: 'monthly',
       items: [
-        { category: 'Food', plannedAmount: 980, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Food')) },
-        { category: 'Housing', plannedAmount: 1300, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Housing')) },
-        { category: 'Utilities', plannedAmount: 260, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Utilities')) },
-        { category: 'Transport', plannedAmount: 220, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Transport')) },
-        { category: 'Entertainment', plannedAmount: 120, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Entertainment')) },
+        { id: 'budget-item-food', category: 'Food', plannedAmount: 980, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Food')) },
+        { id: 'budget-item-housing', category: 'Housing', plannedAmount: 1300, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Housing')) },
+        { id: 'budget-item-utilities', category: 'Utilities', plannedAmount: 260, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Utilities')) },
+        { id: 'budget-item-transport', category: 'Transport', plannedAmount: 220, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Transport')) },
+        { id: 'budget-item-entertainment', category: 'Entertainment', plannedAmount: 120, actualAmount: Math.round(getMonthlyActual(generatedTransactions, currentMonthKey, 'Entertainment')) },
       ],
     },
   ]
@@ -188,6 +210,52 @@ function makeId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+function isTransactionInBudgetPeriod(date: string, period: Budget['period']) {
+  const transactionDate = new Date(`${date}T00:00:00Z`)
+  const now = new Date()
+
+  if (period === 'monthly') {
+    return transactionDate.getUTCFullYear() === now.getUTCFullYear()
+      && transactionDate.getUTCMonth() === now.getUTCMonth()
+  }
+
+  if (period === 'quarterly') {
+    return transactionDate.getUTCFullYear() === now.getUTCFullYear()
+      && Math.floor(transactionDate.getUTCMonth() / 3) === Math.floor(now.getUTCMonth() / 3)
+  }
+
+  return transactionDate.getUTCFullYear() === now.getUTCFullYear()
+}
+
+function calculateBudgetActualAmount(category: string, period: Budget['period'], subcategory?: string) {
+  return Math.round(
+    transactions
+      .filter((transaction) => {
+        if (transaction.type !== 'expense') return false
+        if (!isTransactionInBudgetPeriod(transaction.date, period)) return false
+        if ((transaction.category ?? '') !== category) return false
+        if (subcategory) return (transaction.subcategory ?? '') === subcategory
+        return true
+      })
+      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0),
+  )
+}
+
+function normalizeBudgetItems(items: Budget['items'], period: Budget['period']) {
+  return normalizeBudgetHierarchy(items, makeId).map((item) => {
+    const category = item.category.trim()
+    const subcategory = item.subcategory?.trim() || undefined
+    return {
+      ...item,
+      id: item.id || makeId(),
+      category,
+      subcategory,
+      plannedAmount: Number(item.plannedAmount || 0),
+      actualAmount: calculateBudgetActualAmount(category, period, subcategory),
+    }
+  })
+}
+
 function cloneTaxonomy() {
   return categoryTaxonomy.map(category => ({
     ...category,
@@ -197,6 +265,13 @@ function cloneTaxonomy() {
 
 function getMonthKeyFromDate(date: string) {
   return date.slice(0, 7)
+}
+
+function parseRuleValueList(value: string) {
+  return value
+    .split(',')
+    .map(part => part.trim().toLowerCase())
+    .filter(Boolean)
 }
 
 function asChartPoints(map: Record<string, number>, drilldownIdsByKey?: Record<string, string[]>): ChartPoint[] {
@@ -431,17 +506,26 @@ class StubFinanceApiClient implements IFinanceApiClient {
   getCategoryTaxonomy() {
     return delay(cloneTaxonomy());
   }
-  createCategory(category: { name: string; icon: string }) {
-    const created: CategoryDefinition = { id: makeId(), name: category.name, icon: category.icon, subcategories: [] };
+  createCategory(category: { name: string; icon: string; color?: string; transactionType?: Transaction['type'] }) {
+    const created: CategoryDefinition = {
+      id: makeId(),
+      name: category.name,
+      icon: category.icon,
+      color: category.color ?? getDefaultCategoryColor(category.name),
+      transactionType: category.transactionType ?? 'expense',
+      subcategories: [],
+    };
     categoryTaxonomy.push(created);
     return delay({ ...created, subcategories: [] });
   }
-  updateCategory(categoryId: string, category: { name?: string; icon?: string }) {
+  updateCategory(categoryId: string, category: { name?: string; icon?: string; color?: string; transactionType?: Transaction['type'] }) {
     const idx = categoryTaxonomy.findIndex(x => x.id === categoryId);
     if (idx < 0) throw new Error(`Category ${categoryId} not found`);
+    const resolvedName = category.name ?? categoryTaxonomy[idx].name
     categoryTaxonomy[idx] = {
       ...categoryTaxonomy[idx],
       ...category,
+      color: category.color ?? categoryTaxonomy[idx].color ?? getDefaultCategoryColor(resolvedName),
     };
     const fallback = categoryTaxonomy[idx];
     return delay({
@@ -449,13 +533,13 @@ class StubFinanceApiClient implements IFinanceApiClient {
       subcategories: [...fallback.subcategories],
     });
   }
-  createSubcategory(categoryId: string, subcategory: { name: string; icon: string }) {
+  createSubcategory(categoryId: string, subcategory: { name: string; icon: string; color?: string }) {
     const category = categoryTaxonomy.find(x => x.id === categoryId);
-    const created: SubcategoryDefinition = { id: makeId(), name: subcategory.name, icon: subcategory.icon };
+    const created: SubcategoryDefinition = { id: makeId(), name: subcategory.name, icon: subcategory.icon, color: subcategory.color };
     if (category) category.subcategories.push(created);
     return delay(created);
   }
-  updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string }) {
+  updateSubcategory(categoryId: string, subcategoryId: string, subcategory: { name?: string; icon?: string; color?: string }) {
     const category = categoryTaxonomy.find(x => x.id === categoryId);
     if (!category) throw new Error(`Category ${categoryId} not found`);
     const idx = category.subcategories.findIndex(x => x.id === subcategoryId);
@@ -495,16 +579,26 @@ class StubFinanceApiClient implements IFinanceApiClient {
   }
 
   // Budgets
-  getBudgets() { return delay([...budgets]); }
-  getBudget(id: string) { return delay(budgets.find(b => b.id === id) ?? budgets[0]); }
+  getBudgets() { return delay(budgets.map(budget => ({ ...budget, items: budget.items.map(item => ({ ...item })) }))); }
+  getBudget(id: string) {
+    const budget = budgets.find(b => b.id === id) ?? budgets[0]
+    return delay({ ...budget, items: budget.items.map(item => ({ ...item })) })
+  }
   createBudget(b: Omit<Budget, 'id'>) {
-    const created = { ...b, id: makeId() };
+    const created = { ...b, id: makeId(), items: normalizeBudgetItems(b.items, b.period) };
     budgets.push(created);
     return delay(created);
   }
   updateBudget(id: string, b: Partial<Budget>) {
     const idx = budgets.findIndex(x => x.id === id);
-    if (idx >= 0) budgets[idx] = { ...budgets[idx], ...b };
+    if (idx >= 0) {
+      const nextPeriod = b.period ?? budgets[idx].period
+      budgets[idx] = {
+        ...budgets[idx],
+        ...b,
+        items: normalizeBudgetItems(b.items ?? budgets[idx].items, nextPeriod),
+      }
+    }
     return delay(budgets[idx >= 0 ? idx : 0]);
   }
   deleteBudget(id: string) {
@@ -723,18 +817,23 @@ class StubFinanceApiClient implements IFinanceApiClient {
   getBudgetDashboard(filters?: DashboardFiltersInput) {
     const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
     const budgetItems = budgets.flatMap(b => b.items)
-    const budgetVsActual = budgetItems.map(item => ({
-      key: item.category,
-      label: item.category,
+    const topLevelBudgetItems = getTopLevelBudgetItems(budgetItems)
+    const budgetVsActual = topLevelBudgetItems.map(item => ({
+      key: item.id,
+      label: item.subcategory ? `${item.category} / ${item.subcategory}` : item.category,
       value: item.plannedAmount,
       secondaryValue: item.actualAmount,
       tertiaryValue: item.plannedAmount - item.actualAmount,
     }))
-    const utilization = budgetItems.map(item => ({
-      key: item.category,
-      label: item.category,
+    const utilization = topLevelBudgetItems.map(item => ({
+      key: item.id,
+      label: item.subcategory ? `${item.category} / ${item.subcategory}` : item.category,
       value: item.plannedAmount > 0 ? (item.actualAmount / item.plannedAmount) * 100 : 0,
-      drilldown: { transactionIds: filteredTransactions.filter(tx => tx.category === item.category).map(tx => tx.id) },
+      drilldown: {
+        transactionIds: filteredTransactions
+          .filter(tx => tx.category === item.category && (!item.subcategory || tx.subcategory === item.subcategory))
+          .map(tx => tx.id),
+      },
     }))
     const overrun = [...budgetVsActual]
       .map(item => ({ ...item, value: Math.max(0, -(item.tertiaryValue ?? 0)) }))
@@ -746,15 +845,15 @@ class StubFinanceApiClient implements IFinanceApiClient {
         acc[tx.date] = (acc[tx.date] ?? 0) + Math.abs(tx.amount)
         return acc
       }, {})
-    let remaining = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0)
+    let remaining = getBudgetTotals(budgetItems).planned
     const burndown = Object.entries(dailySpend)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, amount]) => {
         remaining -= amount
         return { key: date, label: date, value: remaining }
       })
-    const fixedBudget = budgetItems.filter(item => ['Housing', 'Utilities', 'Transport'].includes(item.category)).reduce((sum, item) => sum + item.plannedAmount, 0)
-    const variableBudget = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0) - fixedBudget
+    const fixedBudget = topLevelBudgetItems.filter(item => ['Housing', 'Utilities', 'Transport'].includes(item.category)).reduce((sum, item) => sum + item.plannedAmount, 0)
+    const variableBudget = getBudgetTotals(budgetItems).planned - fixedBudget
     return delay<BudgetDashboardData>({
       budgetVsActual,
       budgetVarianceTrend: budgetVsActual,
@@ -778,7 +877,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     })
     const monthlyDebt: Record<string, number> = {}
     filteredTransactions.forEach(tx => {
-      if (tx.type === 'loan_payment' || (tx.type === 'expense' && tx.category === 'Housing')) {
+      if (tx.type === 'expense' && tx.category === 'Housing') {
         const key = getMonthKeyFromDate(tx.date)
         monthlyDebt[key] = (monthlyDebt[key] ?? 0) + Math.abs(tx.amount)
       }
@@ -854,7 +953,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
   getInvestmentsDashboard(filters?: DashboardFiltersInput) {
     const { filteredTransactions, filteredAccounts } = applyDashboardFilters(filters)
     const investmentAccounts = filteredAccounts.filter(a => a.type === 'brokerage' || a.type === 'retirement')
-    const investmentTx = filteredTransactions.filter(tx => tx.type === 'investment')
+    const investmentTx = filteredTransactions.filter(tx => tx.type === 'transfer' && tx.isInvestmentTransfer)
     const monthlyContributionsMap: Record<string, number> = {}
     const contributionTxIdsByMonth: Record<string, string[]> = {}
     investmentTx.forEach(tx => {
@@ -949,7 +1048,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const retirementTxByMonth: Record<string, number> = {}
     const retirementTxIdsByMonth: Record<string, string[]> = {}
     filteredTransactions
-      .filter(tx => tx.type === 'investment' && retirementAccounts.some(account => account.id === tx.accountId))
+      .filter(tx => tx.type === 'transfer' && tx.isInvestmentTransfer && retirementAccounts.some(account => account.id === tx.accountId))
       .forEach(tx => {
         const month = getMonthKeyFromDate(tx.date)
         retirementTxByMonth[month] = (retirementTxByMonth[month] ?? 0) + Math.abs(tx.amount)
@@ -1057,8 +1156,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const deductibleCategories = new Set(['Health', 'Housing', 'Utilities', 'Transport'])
     const taxRelevantTransactions = filteredTransactions.filter(tx =>
       tx.type === 'income'
-      || tx.type === 'tax'
-      || tx.type === 'investment'
+      || (tx.type === 'transfer' && tx.isInvestmentTransfer)
       || taxRelevantAccountIds.includes(tx.accountId)
       || deductibleCategories.has(tx.category ?? ''),
     )
@@ -1109,7 +1207,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
 
     const retirementContributionByMonth: Record<string, number> = {}
     filteredTransactions
-      .filter(tx => tx.type === 'investment' && filteredAccounts.some(account => account.id === tx.accountId && account.type === 'retirement'))
+      .filter(tx => tx.type === 'transfer' && tx.isInvestmentTransfer && filteredAccounts.some(account => account.id === tx.accountId && account.type === 'retirement'))
       .forEach(tx => {
         const month = getMonthKeyFromDate(tx.date)
         retirementContributionByMonth[month] = (retirementContributionByMonth[month] ?? 0) + Math.abs(tx.amount)
@@ -1147,7 +1245,7 @@ class StubFinanceApiClient implements IFinanceApiClient {
         return acc
       }, {})
     const monthlyInvestmentContributions = filteredTransactions
-      .filter(tx => tx.type === 'investment')
+      .filter(tx => tx.type === 'transfer' && tx.isInvestmentTransfer)
       .reduce<Record<string, number>>((acc, tx) => {
         const month = getMonthKeyFromDate(tx.date)
         acc[month] = (acc[month] ?? 0) + Math.abs(tx.amount)
@@ -1266,15 +1364,33 @@ class StubFinanceApiClient implements IFinanceApiClient {
 
       const matchingRules = rules.filter(rule => rule.isActive && rule.conditions.every(condition => {
         const conditionValue = condition.value.toLowerCase()
+        const conditionValues = parseRuleValueList(condition.value)
         if (!conditionValue) return false
         const description = tx.description.toLowerCase()
         const merchant = (tx.merchant ?? '').toLowerCase()
         const category = (tx.category ?? '').toLowerCase()
+        const accountId = tx.accountId.toLowerCase()
+        const type = tx.type.toLowerCase()
         const tags = tx.tags.map(tag => tag.toLowerCase())
         if (condition.field === 'merchant') return merchant.includes(conditionValue)
         if (condition.field === 'description') return description.includes(conditionValue)
+        if (condition.field === 'amount') {
+          const numericValue = Number(condition.value)
+          if (!Number.isFinite(numericValue)) return false
+          const amount = Math.abs(tx.amount)
+          if (condition.operator === 'greaterThan') return amount > numericValue
+          if (condition.operator === 'lessThan') return amount < numericValue
+          return amount === numericValue
+        }
+        if (condition.field === 'date') {
+          if (condition.operator === 'greaterThan') return tx.date > condition.value
+          if (condition.operator === 'lessThan') return tx.date < condition.value
+          return tx.date === condition.value
+        }
+        if (condition.field === 'account') return accountId === conditionValue
+        if (condition.field === 'type') return type === conditionValue
         if (condition.field === 'category') return category.includes(conditionValue)
-        if (condition.field === 'tags') return tags.some(tag => tag.includes(conditionValue))
+        if (condition.field === 'tags') return conditionValues.some(value => tags.some(tag => tag.includes(value)))
         return false
       }))
 

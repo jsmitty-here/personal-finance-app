@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowUp, CheckCircle, XCircle } from 'lucide-react'
-import { apiClient } from '@/lib/stub-client'
-import type { CategorizationRule } from '@/lib/api-client'
+import { getRulePrefillSignature, parseRulePrefillSearchParams } from '@/features/rules/prefill'
 import { RuleEditorSection } from '@/features/rules/RuleEditor'
 import {
-  createDefaultRuleEditorState,
-  createRuleEditorStateFromPrefill,
-  createRuleEditorStateFromRule,
-  type RuleEditorState,
-  validateRuleEditorState,
+    buildRuleActionsFromEditorState,
+    createDefaultRuleEditorState,
+    createRuleEditorStateFromPrefill,
+    createRuleEditorStateFromRule,
+    type RuleEditorState,
+    validateRuleEditorState,
 } from '@/features/rules/ruleEditorModel'
-import { getRulePrefillSignature, parseRulePrefillSearchParams } from '@/features/rules/prefill'
 import { doesRuleMatch } from '@/features/rules/ruleMatching'
+import type { CategorizationRule } from '@/lib/api-client'
+import { apiClient } from '@/lib/stub-client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowDown, ArrowUp, CheckCircle, XCircle } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 const RULE_TABLE_COLUMNS = ['Priority', 'Name', 'Conditions', 'Actions', 'Preview Impact', 'Active', 'Controls'] as const
 
@@ -39,6 +40,21 @@ export function RulesPage() {
     queryFn: () => apiClient.getTransactions(),
   })
 
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts', 'rules-editor'],
+    queryFn: () => apiClient.getAccounts(),
+  })
+
+  const { data: categoryTaxonomy = [] } = useQuery({
+    queryKey: ['category-taxonomy'],
+    queryFn: () => apiClient.getCategoryTaxonomy(),
+  })
+
+  const knownTags = useMemo(
+    () => Array.from(new Set(transactions.flatMap(transaction => transaction.tags))).sort((left, right) => left.localeCompare(right)),
+    [transactions],
+  )
+
   const createMutation = useMutation({
     mutationFn: () =>
       apiClient.createRule({
@@ -50,7 +66,7 @@ export function RulesPage() {
           operator: editorState.conditionOperator,
           value: editorState.conditionValue.trim(),
         }],
-        actions: [{ field: editorState.actionField, value: editorState.actionValue.trim() }],
+        actions: buildRuleActionsFromEditorState(editorState),
       }),
     onSuccess: () => {
       setEditorState(createDefaultRuleEditorState())
@@ -112,7 +128,7 @@ export function RulesPage() {
             operator: editorState.conditionOperator,
             value: editorState.conditionValue.trim(),
           }],
-          actions: [{ field: editorState.actionField, value: editorState.actionValue.trim() }],
+          actions: buildRuleActionsFromEditorState(editorState),
         },
       })
       setEditingRuleId(null)
@@ -186,6 +202,9 @@ export function RulesPage() {
           <RuleEditorSection
             title={editingRuleId ? 'Edit Rule' : 'Create Rule'}
             state={editorState}
+            accounts={accounts}
+            taxonomy={categoryTaxonomy}
+            knownTags={knownTags}
             prefill={editingRuleId ? null : prefill}
             validationError={editorError}
             submitLabel={editingRuleId ? 'Save changes' : 'Create'}

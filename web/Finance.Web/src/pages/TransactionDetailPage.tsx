@@ -1,17 +1,17 @@
-import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { apiClient } from '@/lib/stub-client'
-import type {
-  Account,
-  CategorizationRule,
-  CategoryDefinition,
-  Owner,
-  Transaction,
-  TransactionSplit,
-} from '@/lib/api-client'
 import { buildRulePrefillSearchParams } from '@/features/rules/prefill'
 import { doesRuleMatch } from '@/features/rules/ruleMatching'
+import type {
+    Account,
+    CategorizationRule,
+    CategoryDefinition,
+    Owner,
+    Transaction,
+    TransactionSplit,
+} from '@/lib/api-client'
+import { apiClient } from '@/lib/stub-client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -51,10 +51,13 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
+  const [newCategoryType, setNewCategoryType] = useState<Transaction['type']>(transaction.type)
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false)
   const [newSubcategoryName, setNewSubcategoryName] = useState('')
   const [newSubcategoryIcon, setNewSubcategoryIcon] = useState('📂')
   const [editTags, setEditTags] = useState(transaction.tags.join(', '))
+  const [editIsReimbursable, setEditIsReimbursable] = useState(Boolean(transaction.isReimbursable))
+  const [editIsInvestmentTransfer, setEditIsInvestmentTransfer] = useState(Boolean(transaction.isInvestmentTransfer))
   const parsedTags = useMemo(() => editTags.split(',').map(tag => tag.trim()).filter(Boolean), [editTags])
 
   const [recategorizeMode, setRecategorizeMode] = useState<'transaction' | 'rule'>('transaction')
@@ -87,7 +90,7 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   })
 
   const createCategoryMutation = useMutation({
-    mutationFn: ({ name, icon }: { name: string; icon: string }) => apiClient.createCategory({ name, icon }),
+    mutationFn: ({ name, icon, transactionType }: { name: string; icon: string; transactionType: Transaction['type'] }) => apiClient.createCategory({ name, icon, transactionType }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
   })
 
@@ -120,14 +123,18 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
     let categoryToSave = editCategory
     let subcategoryToSave = editSubcategory
     let categoryIdForSubcategory = categoryTaxonomy.find(category => category.name === categoryToSave)?.id
+    let categoryTypeToSave = categoryTaxonomy.find(category => category.name === categoryToSave)?.transactionType
 
     if (isCreatingCategory && newCategoryName.trim()) {
       const createdCategory = await createCategoryMutation.mutateAsync({
         name: newCategoryName.trim(),
         icon: newCategoryIcon.trim() || '🏷️',
+        transactionType: newCategoryType,
       })
       categoryToSave = createdCategory.name
       categoryIdForSubcategory = createdCategory.id
+      categoryTypeToSave = createdCategory.transactionType
+      setEditType(createdCategory.transactionType)
     }
 
     if (isCreatingSubcategory && newSubcategoryName.trim() && categoryIdForSubcategory) {
@@ -139,15 +146,19 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
       subcategoryToSave = createdSubcategory.name
     }
 
+    const transactionTypeToSave = categoryTypeToSave ?? editType
+
     await updateMutation.mutateAsync({
       id: transaction.id,
       data: {
-        type: editType,
+        type: transactionTypeToSave,
         description: editDescription.trim() || transaction.description,
         merchant: editMerchant.trim() || undefined,
         category: categoryToSave || undefined,
         subcategory: subcategoryToSave || undefined,
         tags: parsedTags,
+        isReimbursable: editIsReimbursable,
+        isInvestmentTransfer: transactionTypeToSave === 'transfer' ? editIsInvestmentTransfer : false,
         isManualOverride: true,
       },
     })
@@ -242,17 +253,16 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Description" />
           <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editMerchant} onChange={e => setEditMerchant(e.target.value)} placeholder="Merchant" />
-          <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={editType} onChange={e => setEditType(e.target.value as Transaction['type'])}>
+          <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground disabled:opacity-60" value={editType} onChange={e => {
+            const nextType = e.target.value as Transaction['type']
+            setEditType(nextType)
+            if (nextType !== 'transfer') {
+              setEditIsInvestmentTransfer(false)
+            }
+          }} disabled={Boolean(selectedTaxonomyCategory) && !isCreatingCategory}>
             <option value="income">income</option>
             <option value="expense">expense</option>
             <option value="transfer">transfer</option>
-            <option value="investment">investment</option>
-            <option value="loan_payment">loan_payment</option>
-            <option value="fee">fee</option>
-            <option value="tax">tax</option>
-            <option value="refund">refund</option>
-            <option value="reimbursement">reimbursement</option>
-            <option value="adjustment">adjustment</option>
           </select>
           <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Tags (comma-separated)" value={editTags} onChange={e => setEditTags(e.target.value)} />
 
@@ -264,10 +274,18 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
                 setIsCreatingCategory(true)
                 setEditCategory('')
                 setEditSubcategory('')
+                setNewCategoryType(editType)
               } else {
+                const nextCategory = categoryTaxonomy.find(category => category.name === e.target.value)
                 setIsCreatingCategory(false)
                 setEditCategory(e.target.value)
                 setEditSubcategory('')
+                if (nextCategory) {
+                  setEditType(nextCategory.transactionType)
+                  if (nextCategory.transactionType !== 'transfer') {
+                    setEditIsInvestmentTransfer(false)
+                  }
+                }
               }
             }}
           >
@@ -301,11 +319,33 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
         </div>
 
         {isCreatingCategory && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
             <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" placeholder="Category icon (emoji)" value={newCategoryIcon} onChange={e => setNewCategoryIcon(e.target.value)} />
+            <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={newCategoryType} onChange={e => setNewCategoryType(e.target.value as Transaction['type'])}>
+              <option value="income">income</option>
+              <option value="expense">expense</option>
+              <option value="transfer">transfer</option>
+            </select>
           </div>
         )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground">
+            <input type="checkbox" checked={editIsReimbursable} onChange={e => setEditIsReimbursable(e.target.checked)} />
+            Reimbursable
+          </label>
+          <label className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground disabled:opacity-60">
+            <input type="checkbox" checked={editIsInvestmentTransfer} onChange={e => setEditIsInvestmentTransfer(e.target.checked)} disabled={editType !== 'transfer'} />
+            Investment transfer
+          </label>
+        </div>
+
+        {selectedTaxonomyCategory && !isCreatingCategory ? (
+          <p className="text-xs text-muted-foreground">
+            Category type is fixed to <span className="font-medium text-foreground">{selectedTaxonomyCategory.transactionType}</span>.
+          </p>
+        ) : null}
 
         {isCreatingSubcategory && !isCreatingCategory && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
