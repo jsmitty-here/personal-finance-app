@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiClient } from '@/lib/stub-client'
 import type {
   Account,
   CategorizationRule,
   CategoryDefinition,
   Owner,
-  RuleCondition,
   Transaction,
   TransactionSplit,
 } from '@/lib/api-client'
+import { buildRulePrefillSearchParams } from '@/features/rules/prefill'
+import { doesRuleMatch } from '@/features/rules/ruleMatching'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -30,23 +31,6 @@ function formatCategoryPath(
   return [categoryLabel, subcategoryLabel, subSubcategoryLabel].filter(Boolean).join(' / ')
 }
 
-function doesRuleMatch(rule: CategorizationRule, tx: Transaction) {
-  return rule.conditions.every((condition) => {
-    const value = condition.value.toLowerCase()
-    if (!value) return false
-    const description = tx.description.toLowerCase()
-    const merchant = (tx.merchant ?? '').toLowerCase()
-    if (condition.field === 'merchant') return merchant.includes(value) || description.includes(value)
-    if (condition.field === 'description') return description.includes(value)
-    if (condition.field === 'amount') return String(Math.abs(tx.amount)).includes(value)
-    if (condition.field === 'account') return tx.accountId.toLowerCase() === value
-    if (condition.field === 'type') return tx.type.toLowerCase() === value
-    if (condition.field === 'category') return (tx.category ?? '').toLowerCase() === value
-    if (condition.field === 'tags') return tx.tags.some(tag => tag.toLowerCase().includes(value))
-    return false
-  })
-}
-
 interface TransactionDetailEditorProps {
   transaction: Transaction
   accounts: Account[]
@@ -57,6 +41,7 @@ interface TransactionDetailEditorProps {
 
 function TransactionDetailEditor({ transaction, accounts, owners, rules, categoryTaxonomy }: TransactionDetailEditorProps) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
   const [editType, setEditType] = useState<Transaction['type']>(transaction.type)
   const [editDescription, setEditDescription] = useState(transaction.description)
@@ -70,12 +55,9 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   const [newSubcategoryName, setNewSubcategoryName] = useState('')
   const [newSubcategoryIcon, setNewSubcategoryIcon] = useState('📂')
   const [editTags, setEditTags] = useState(transaction.tags.join(', '))
+  const parsedTags = useMemo(() => editTags.split(',').map(tag => tag.trim()).filter(Boolean), [editTags])
 
   const [recategorizeMode, setRecategorizeMode] = useState<'transaction' | 'rule'>('transaction')
-  const [ruleName, setRuleName] = useState(`Auto-categorize ${transaction.merchant ?? transaction.description}`)
-  const [ruleConditionField, setRuleConditionField] = useState<RuleCondition['field']>('merchant')
-  const [ruleConditionOperator, setRuleConditionOperator] = useState<RuleCondition['operator']>('contains')
-  const [ruleConditionValue, setRuleConditionValue] = useState((transaction.merchant ?? transaction.description).trim())
 
   const [splitMode, setSplitMode] = useState<'amount' | 'percent'>('amount')
   const [splitRows, setSplitRows] = useState<Array<{ amount: string; category: string; subcategory: string; tags: string }>>([
@@ -112,11 +94,6 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   const createSubcategoryMutation = useMutation({
     mutationFn: ({ categoryId, name, icon }: { categoryId: string; name: string; icon: string }) => apiClient.createSubcategory(categoryId, { name, icon }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['category-taxonomy'] }),
-  })
-
-  const createRuleMutation = useMutation({
-    mutationFn: (rule: Omit<CategorizationRule, 'id'>) => apiClient.createRule(rule),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rules'] }),
   })
 
   const ownerById = Object.fromEntries(owners.map(o => [o.id, o.name]))
@@ -162,8 +139,6 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
       subcategoryToSave = createdSubcategory.name
     }
 
-    const tags = editTags.split(',').map(tag => tag.trim()).filter(Boolean)
-
     await updateMutation.mutateAsync({
       id: transaction.id,
       data: {
@@ -172,29 +147,13 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
         merchant: editMerchant.trim() || undefined,
         category: categoryToSave || undefined,
         subcategory: subcategoryToSave || undefined,
-        tags,
+        tags: parsedTags,
         isManualOverride: true,
       },
     })
 
     if (recategorizeMode === 'rule') {
-      const conditionValue = ruleConditionValue.trim() || (transaction.merchant ?? transaction.description)
-      await createRuleMutation.mutateAsync({
-        name: ruleName.trim() || `Auto-categorize ${transaction.description}`,
-        priority: rules.length + 1,
-        isActive: true,
-        conditions: [{
-          field: ruleConditionField,
-          operator: ruleConditionOperator,
-          value: conditionValue,
-        }],
-        actions: [
-          { field: 'type', value: editType },
-          ...(categoryToSave ? [{ field: 'category' as const, value: categoryToSave }] : []),
-          ...(subcategoryToSave ? [{ field: 'subcategory' as const, value: subcategoryToSave }] : []),
-          ...(tags.length ? [{ field: 'tags' as const, value: tags.join(', ') }] : []),
-        ],
-      })
+      navigate(rulesPrefillPath)
     }
   }
 
@@ -220,6 +179,22 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   const matchedSummary = winningRule
     ? `${winningRule.name} (won) · ${matchingRules.length} matched`
     : `No active winner · ${matchingRules.length} matched`
+  const rulesPrefillPath = (() => {
+    const params = buildRulePrefillSearchParams({
+      transactionId: transaction.id,
+      merchant: editMerchant.trim() || transaction.merchant,
+      description: editDescription.trim() || transaction.description,
+      amount: Math.abs(transaction.amount),
+      accountId: transaction.accountId,
+      type: editType,
+      category: editCategory.trim() || transaction.category,
+      subcategory: editSubcategory.trim() || transaction.subcategory,
+      tags: parsedTags,
+      ruleName: `Auto-categorize ${editMerchant.trim() || editDescription.trim() || transaction.description}`,
+    })
+    const query = params.toString()
+    return query ? `/rules?${query}` : '/rules'
+  })()
 
   return (
     <div className="space-y-6">
@@ -228,7 +203,10 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
           <p className="text-xs text-muted-foreground">Transaction details</p>
           <h2 className="text-2xl font-bold text-foreground">{transaction.description}</h2>
         </div>
-        <Link to="/transactions" className="text-sm text-primary hover:underline">← Back to list</Link>
+        <div className="flex items-center gap-3">
+          <Link to={rulesPrefillPath} className="text-sm text-primary hover:underline">Create rule from this transaction</Link>
+          <Link to="/transactions" className="text-sm text-primary hover:underline">← Back to list</Link>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -350,25 +328,11 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
           </div>
 
           {recategorizeMode === 'rule' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={ruleName} onChange={e => setRuleName(e.target.value)} placeholder="Rule name" />
-              <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={ruleConditionField} onChange={e => setRuleConditionField(e.target.value as RuleCondition['field'])}>
-                <option value="merchant">merchant</option>
-                <option value="description">description</option>
-                <option value="amount">amount</option>
-                <option value="account">account</option>
-                <option value="type">type</option>
-                <option value="category">category</option>
-                <option value="tags">tags</option>
-              </select>
-              <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={ruleConditionOperator} onChange={e => setRuleConditionOperator(e.target.value as RuleCondition['operator'])}>
-                <option value="contains">contains</option>
-                <option value="equals">equals</option>
-                <option value="startsWith">startsWith</option>
-                <option value="greaterThan">greaterThan</option>
-                <option value="lessThan">lessThan</option>
-              </select>
-              <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={ruleConditionValue} onChange={e => setRuleConditionValue(e.target.value)} placeholder="Condition value" />
+            <div className="rounded-md border border-info/40 bg-info-subtle/20 p-3 space-y-2">
+              <p className="text-xs text-info-subtle-foreground">
+                Rule fields are now created in one shared editor. Save this transaction, then continue with prefilled fields in Rules.
+              </p>
+              <Link to={rulesPrefillPath} className="text-xs text-primary hover:underline">Open prefilled rule editor now</Link>
             </div>
           )}
         </div>

@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { ArrowDown, ArrowUp, CheckCircle, XCircle } from 'lucide-react'
 import { apiClient } from '@/lib/stub-client'
-import type { CategorizationRule, RuleAction, RuleCondition, Transaction } from '@/lib/api-client'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import type { CategorizationRule } from '@/lib/api-client'
+import { RuleEditorSection } from '@/features/rules/RuleEditor'
+import {
+  createDefaultRuleEditorState,
+  createRuleEditorStateFromPrefill,
+  createRuleEditorStateFromRule,
+  type RuleEditorState,
+  validateRuleEditorState,
+} from '@/features/rules/ruleEditorModel'
+import { getRulePrefillSignature, parseRulePrefillSearchParams } from '@/features/rules/prefill'
+import { doesRuleMatch } from '@/features/rules/ruleMatching'
 
 const RULE_TABLE_COLUMNS = ['Priority', 'Name', 'Conditions', 'Actions', 'Preview Impact', 'Active', 'Controls'] as const
-import { CheckCircle, XCircle } from 'lucide-react'
 
 export function RulesPage() {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const editorSectionRef = useRef<HTMLDivElement>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [conditionField, setConditionField] = useState<RuleCondition['field']>('merchant')
-  const [conditionOperator, setConditionOperator] = useState<RuleCondition['operator']>('contains')
-  const [conditionValue, setConditionValue] = useState('')
-  const [actionField, setActionField] = useState<RuleAction['field']>('category')
-  const [actionValue, setActionValue] = useState('')
+  const [editorState, setEditorState] = useState<RuleEditorState>(() => createDefaultRuleEditorState())
+  const [editorError, setEditorError] = useState<string | null>(null)
+  const prefill = useMemo(() => parseRulePrefillSearchParams(searchParams), [searchParams])
+  const prefillSignature = useMemo(() => getRulePrefillSignature(prefill), [prefill])
+  const lastAppliedPrefillSignatureRef = useRef<string | null>(null)
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['rules'],
@@ -32,16 +42,19 @@ export function RulesPage() {
   const createMutation = useMutation({
     mutationFn: () =>
       apiClient.createRule({
-        name: name.trim(),
+        name: editorState.name.trim(),
         priority: rules.length + 1,
         isActive: true,
-        conditions: [{ field: conditionField, operator: conditionOperator, value: conditionValue }],
-        actions: [{ field: actionField, value: actionValue }],
+        conditions: [{
+          field: editorState.conditionField,
+          operator: editorState.conditionOperator,
+          value: editorState.conditionValue.trim(),
+        }],
+        actions: [{ field: editorState.actionField, value: editorState.actionValue.trim() }],
       }),
     onSuccess: () => {
-      setName('')
-      setConditionValue('')
-      setActionValue('')
+      setEditorState(createDefaultRuleEditorState())
+      setEditorError(null)
       setIsCreateOpen(false)
       void qc.invalidateQueries({ queryKey: ['rules'] })
     },
@@ -72,23 +85,6 @@ export function RulesPage() {
     return map
   }, [sorted, transactions])
 
-  function doesRuleMatch(rule: CategorizationRule, tx: Transaction) {
-    return rule.conditions.every((condition) => {
-      const value = condition.value.toLowerCase()
-      if (!value) return false
-      const description = tx.description.toLowerCase()
-      const merchant = (tx.merchant ?? '').toLowerCase()
-      if (condition.field === 'merchant') return merchant.includes(value) || description.includes(value)
-      if (condition.field === 'description') return description.includes(value)
-      if (condition.field === 'amount') return String(Math.abs(tx.amount)).includes(value)
-      if (condition.field === 'account') return tx.accountId.toLowerCase() === value
-      if (condition.field === 'type') return tx.type.toLowerCase() === value
-      if (condition.field === 'category') return (tx.category ?? '').toLowerCase() === value
-      if (condition.field === 'tags') return tx.tags.some(tag => tag.toLowerCase().includes(value))
-      return false
-    })
-  }
-
   function moveRule(ruleId: string, direction: 'up' | 'down') {
     const index = sorted.findIndex(rule => rule.id === ruleId)
     const next = [...sorted]
@@ -98,27 +94,71 @@ export function RulesPage() {
     reorderMutation.mutate(next.map(rule => rule.id))
   }
 
-  function applyEdit(ruleId: string) {
-    updateMutation.mutate({
-      id: ruleId,
-      rule: {
-        name: name.trim(),
-        conditions: [{ field: conditionField, operator: conditionOperator, value: conditionValue }],
-        actions: [{ field: actionField, value: actionValue }],
-      },
-    })
-    setEditingRuleId(null)
+  function submitEditor() {
+    const validationError = validateRuleEditorState(editorState)
+    if (validationError) {
+      setEditorError(validationError)
+      return
+    }
+    setEditorError(null)
+
+    if (editingRuleId) {
+      updateMutation.mutate({
+        id: editingRuleId,
+        rule: {
+          name: editorState.name.trim(),
+          conditions: [{
+            field: editorState.conditionField,
+            operator: editorState.conditionOperator,
+            value: editorState.conditionValue.trim(),
+          }],
+          actions: [{ field: editorState.actionField, value: editorState.actionValue.trim() }],
+        },
+      })
+      setEditingRuleId(null)
+      return
+    }
+    createMutation.mutate()
   }
 
   function beginEdit(rule: CategorizationRule) {
+    setEditorError(null)
+    setIsCreateOpen(false)
     setEditingRuleId(rule.id)
-    setName(rule.name)
-    setConditionField(rule.conditions[0]?.field ?? 'merchant')
-    setConditionOperator(rule.conditions[0]?.operator ?? 'contains')
-    setConditionValue(rule.conditions[0]?.value ?? '')
-    setActionField(rule.actions[0]?.field ?? 'category')
-    setActionValue(rule.actions[0]?.value ?? '')
+    setEditorState(createRuleEditorStateFromRule(rule))
   }
+
+  function closeEditor() {
+    setIsCreateOpen(false)
+    setEditingRuleId(null)
+    setEditorError(null)
+  }
+
+  function toggleCreate() {
+    setEditingRuleId(null)
+    setEditorError(null)
+    setIsCreateOpen((open) => {
+      const next = !open
+      if (next && !prefill) setEditorState(createDefaultRuleEditorState())
+      return next
+    })
+  }
+
+  function resetToPrefill() {
+    if (!prefill) return
+    setEditorError(null)
+    setEditorState(createRuleEditorStateFromPrefill(prefill))
+  }
+
+  useEffect(() => {
+    if (!prefill || !prefillSignature) return
+    if (lastAppliedPrefillSignatureRef.current === prefillSignature) return
+    setEditingRuleId(null)
+    setIsCreateOpen(true)
+    setEditorError(null)
+    setEditorState(createRuleEditorStateFromPrefill(prefill))
+    lastAppliedPrefillSignatureRef.current = prefillSignature
+  }, [prefill, prefillSignature])
 
   useEffect(() => {
     if (!isCreateOpen && !editingRuleId) return
@@ -135,54 +175,28 @@ export function RulesPage() {
         <h2 className="text-2xl font-bold text-foreground">Categorization Rules</h2>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{rules.length} rule{rules.length !== 1 ? 's' : ''}</span>
-          <button type="button" onClick={() => setIsCreateOpen(v => !v)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+          <button type="button" onClick={toggleCreate} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
             {isCreateOpen ? 'Close' : 'Create Rule'}
           </button>
         </div>
       </div>
 
       {(isCreateOpen || editingRuleId) && (
-        <div ref={editorSectionRef} className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <h3 className="text-base font-semibold text-foreground">{editingRuleId ? 'Edit Rule' : 'Create Rule'}</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={name} onChange={e => setName(e.target.value)} placeholder="Rule name" />
-            <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={conditionField} onChange={e => setConditionField(e.target.value as RuleCondition['field'])}>
-              <option value="merchant">merchant</option>
-              <option value="description">description</option>
-              <option value="amount">amount</option>
-              <option value="account">account</option>
-              <option value="type">type</option>
-              <option value="category">category</option>
-              <option value="tags">tags</option>
-            </select>
-            <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={conditionOperator} onChange={e => setConditionOperator(e.target.value as RuleCondition['operator'])}>
-              <option value="contains">contains</option>
-              <option value="equals">equals</option>
-              <option value="startsWith">startsWith</option>
-              <option value="greaterThan">greaterThan</option>
-              <option value="lessThan">lessThan</option>
-            </select>
-            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={conditionValue} onChange={e => setConditionValue(e.target.value)} placeholder="Condition value" />
-            <select className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={actionField} onChange={e => setActionField(e.target.value as RuleAction['field'])}>
-              <option value="type">type</option>
-              <option value="category">category</option>
-              <option value="subcategory">subcategory</option>
-              <option value="tags">tags</option>
-              <option value="merchant">merchant normalization</option>
-            </select>
-            <input className="border border-input rounded-md px-3 py-2 text-sm bg-card text-foreground" value={actionValue} onChange={e => setActionValue(e.target.value)} placeholder="Action value" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => {
-              setIsCreateOpen(false)
-              setEditingRuleId(null)
-            }} className="rounded-md border border-border px-3 py-2 text-sm text-foreground">Cancel</button>
-            {editingRuleId ? (
-              <button type="button" onClick={() => applyEdit(editingRuleId)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save changes</button>
-            ) : (
-              <button type="button" onClick={() => createMutation.mutate()} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Create</button>
-            )}
-          </div>
+        <div ref={editorSectionRef}>
+          <RuleEditorSection
+            title={editingRuleId ? 'Edit Rule' : 'Create Rule'}
+            state={editorState}
+            prefill={editingRuleId ? null : prefill}
+            validationError={editorError}
+            submitLabel={editingRuleId ? 'Save changes' : 'Create'}
+            onChange={(next) => {
+              if (editorError) setEditorError(null)
+              setEditorState(next)
+            }}
+            onCancel={closeEditor}
+            onSubmit={submitEditor}
+            onResetToPrefill={!editingRuleId && prefill ? resetToPrefill : undefined}
+          />
         </div>
       )}
 
