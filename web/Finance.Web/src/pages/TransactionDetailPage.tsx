@@ -179,7 +179,7 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
   const matchedSummary = winningRule
     ? `${winningRule.name} (won) · ${matchingRules.length} matched`
     : `No active winner · ${matchingRules.length} matched`
-  const rulesPrefillPath = useMemo(() => {
+  const rulesPrefillPath = (() => {
     const params = buildRulePrefillSearchParams({
       transactionId: transaction.id,
       merchant: editMerchant.trim() || transaction.merchant,
@@ -194,21 +194,7 @@ function TransactionDetailEditor({ transaction, accounts, owners, rules, categor
     })
     const query = params.toString()
     return query ? `/rules?${query}` : '/rules'
-  }, [
-    editCategory,
-    editDescription,
-    editMerchant,
-    editSubcategory,
-    editType,
-    parsedTags,
-    transaction.accountId,
-    transaction.amount,
-    transaction.category,
-    transaction.description,
-    transaction.id,
-    transaction.merchant,
-    transaction.subcategory,
-  ])
+  })()
 
   return (
     <div className="space-y-6">

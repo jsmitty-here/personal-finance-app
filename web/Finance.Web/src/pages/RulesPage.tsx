@@ -4,14 +4,14 @@ import { useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, CheckCircle, XCircle } from 'lucide-react'
 import { apiClient } from '@/lib/stub-client'
 import type { CategorizationRule } from '@/lib/api-client'
+import { RuleEditorSection } from '@/features/rules/RuleEditor'
 import {
   createDefaultRuleEditorState,
   createRuleEditorStateFromPrefill,
   createRuleEditorStateFromRule,
-  RuleEditorSection,
   type RuleEditorState,
   validateRuleEditorState,
-} from '@/features/rules/RuleEditor'
+} from '@/features/rules/ruleEditorModel'
 import { getRulePrefillSignature, parseRulePrefillSearchParams } from '@/features/rules/prefill'
 import { doesRuleMatch } from '@/features/rules/ruleMatching'
 
@@ -161,10 +161,6 @@ export function RulesPage() {
   }, [prefill, prefillSignature])
 
   useEffect(() => {
-    if (editorError) setEditorError(null)
-  }, [editorState])
-
-  useEffect(() => {
     if (!isCreateOpen && !editingRuleId) return
     const frame = requestAnimationFrame(() => {
       const section = editorSectionRef.current
@@ -193,7 +189,10 @@ export function RulesPage() {
             prefill={editingRuleId ? null : prefill}
             validationError={editorError}
             submitLabel={editingRuleId ? 'Save changes' : 'Create'}
-            onChange={setEditorState}
+            onChange={(next) => {
+              if (editorError) setEditorError(null)
+              setEditorState(next)
+            }}
             onCancel={closeEditor}
             onSubmit={submitEditor}
             onResetToPrefill={!editingRuleId && prefill ? resetToPrefill : undefined}
