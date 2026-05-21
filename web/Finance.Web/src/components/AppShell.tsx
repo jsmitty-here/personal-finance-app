@@ -99,7 +99,7 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="relative flex h-screen bg-background">
+    <div className="relative flex h-screen w-full overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <aside
         className={cn(
@@ -214,8 +214,8 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-screen-2xl p-3 pt-14 sm:p-4 md:p-6 md:pt-6">{children}</div>
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="mx-auto w-full min-w-0 max-w-screen-2xl p-3 pt-14 sm:p-4 md:p-6 md:pt-6">{children}</div>
       </main>
     </div>
   )
