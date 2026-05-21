@@ -50,9 +50,9 @@ export function createRuleEditorStateFromRule(rule: CategorizationRule): RuleEdi
 
 export function createRuleEditorStateFromPrefill(prefill: RuleEditorPrefillContext): RuleEditorState {
   const base = createDefaultRuleEditorState()
-  const conditionValue = prefill.merchant ?? prefill.description ?? (typeof prefill.amount === 'number' ? String(prefill.amount) : '') ?? ''
+  const conditionValue = prefill.merchant ?? prefill.description ?? (typeof prefill.amount === 'number' ? String(prefill.amount) : '')
   const actionField: RuleAction['field'] = prefill.category ? 'category' : prefill.type ? 'type' : prefill.tags.length ? 'tags' : 'category'
-  const actionValue = prefill.category ?? prefill.type ?? (prefill.tags.length ? prefill.tags.join(', ') : '') ?? ''
+  const actionValue = prefill.category ?? prefill.type ?? (prefill.tags.length ? prefill.tags.join(', ') : '')
   return {
     ...base,
     name: prefill.ruleName ?? (prefill.merchant || prefill.description ? `Auto-categorize ${prefill.merchant ?? prefill.description}` : ''),
