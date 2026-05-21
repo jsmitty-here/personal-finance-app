@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { apiClient } from '@/lib/stub-client'
-import type { CategorizationRule, RuleCondition, Transaction, TransactionSplit } from '@/lib/api-client'
+import type {
+  Account,
+  CategorizationRule,
+  CategoryDefinition,
+  Owner,
+  RuleCondition,
+  Transaction,
+  TransactionSplit,
+} from '@/lib/api-client'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -39,60 +47,41 @@ function doesRuleMatch(rule: CategorizationRule, tx: Transaction) {
   })
 }
 
-export function TransactionDetailPage() {
-  const { transactionId = '' } = useParams()
+interface TransactionDetailEditorProps {
+  transaction: Transaction
+  accounts: Account[]
+  owners: Owner[]
+  rules: CategorizationRule[]
+  categoryTaxonomy: CategoryDefinition[]
+}
+
+function TransactionDetailEditor({ transaction, accounts, owners, rules, categoryTaxonomy }: TransactionDetailEditorProps) {
   const qc = useQueryClient()
 
-  const [editType, setEditType] = useState<Transaction['type']>('expense')
-  const [editDescription, setEditDescription] = useState('')
-  const [editMerchant, setEditMerchant] = useState('')
-  const [editCategory, setEditCategory] = useState('')
-  const [editSubcategory, setEditSubcategory] = useState('')
+  const [editType, setEditType] = useState<Transaction['type']>(transaction.type)
+  const [editDescription, setEditDescription] = useState(transaction.description)
+  const [editMerchant, setEditMerchant] = useState(transaction.merchant ?? '')
+  const [editCategory, setEditCategory] = useState(transaction.category ?? '')
+  const [editSubcategory, setEditSubcategory] = useState(transaction.subcategory ?? '')
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false)
   const [newSubcategoryName, setNewSubcategoryName] = useState('')
   const [newSubcategoryIcon, setNewSubcategoryIcon] = useState('📂')
-  const [editTags, setEditTags] = useState('')
+  const [editTags, setEditTags] = useState(transaction.tags.join(', '))
 
   const [recategorizeMode, setRecategorizeMode] = useState<'transaction' | 'rule'>('transaction')
-  const [ruleName, setRuleName] = useState('')
+  const [ruleName, setRuleName] = useState(`Auto-categorize ${transaction.merchant ?? transaction.description}`)
   const [ruleConditionField, setRuleConditionField] = useState<RuleCondition['field']>('merchant')
   const [ruleConditionOperator, setRuleConditionOperator] = useState<RuleCondition['operator']>('contains')
-  const [ruleConditionValue, setRuleConditionValue] = useState('')
+  const [ruleConditionValue, setRuleConditionValue] = useState((transaction.merchant ?? transaction.description).trim())
 
   const [splitMode, setSplitMode] = useState<'amount' | 'percent'>('amount')
   const [splitRows, setSplitRows] = useState<Array<{ amount: string; category: string; subcategory: string; tags: string }>>([
     { amount: '', category: '', subcategory: '', tags: '' },
     { amount: '', category: '', subcategory: '', tags: '' },
   ])
-
-  const { data: transaction, isLoading } = useQuery({
-    queryKey: ['transaction', transactionId],
-    queryFn: () => apiClient.getTransaction(transactionId),
-    enabled: !!transactionId,
-  })
-
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => apiClient.getAccounts(),
-  })
-
-  const { data: owners = [] } = useQuery({
-    queryKey: ['owners'],
-    queryFn: () => apiClient.getOwners(),
-  })
-
-  const { data: rules = [] } = useQuery({
-    queryKey: ['rules'],
-    queryFn: () => apiClient.getRules(),
-  })
-
-  const { data: categoryTaxonomy = [] } = useQuery({
-    queryKey: ['category-taxonomy'],
-    queryFn: () => apiClient.getCategoryTaxonomy(),
-  })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Transaction> }) => apiClient.updateTransaction(id, data),
@@ -132,7 +121,7 @@ export function TransactionDetailPage() {
 
   const ownerById = Object.fromEntries(owners.map(o => [o.id, o.name]))
   const accountById = Object.fromEntries(accounts.map(a => [a.id, a]))
-  const account = transaction ? accountById[transaction.accountId] : undefined
+  const account = accountById[transaction.accountId]
   const categoryIconByName = Object.fromEntries(categoryTaxonomy.map(category => [category.name, category.icon]))
   const subcategoryIconByName = Object.fromEntries(
     categoryTaxonomy.flatMap(category => category.subcategories.map(subcategory => [subcategory.name, subcategory.icon])),
@@ -145,35 +134,12 @@ export function TransactionDetailPage() {
   const subcategoryOptions = selectedTaxonomyCategory?.subcategories ?? []
 
   const matchingRules = useMemo(
-    () => (transaction ? [...rules].sort((a, b) => a.priority - b.priority).filter(rule => doesRuleMatch(rule, transaction)) : []),
+    () => [...rules].sort((a, b) => a.priority - b.priority).filter(rule => doesRuleMatch(rule, transaction)),
     [rules, transaction],
   )
   const winningRule = matchingRules.find(rule => rule.isActive)
 
-  useEffect(() => {
-    if (!transaction) return
-    setEditType(transaction.type)
-    setEditDescription(transaction.description)
-    setEditMerchant(transaction.merchant ?? '')
-    setEditCategory(transaction.category ?? '')
-    setEditSubcategory(transaction.subcategory ?? '')
-    setEditTags(transaction.tags.join(', '))
-    setRecategorizeMode('transaction')
-    setRuleName(`Auto-categorize ${transaction.merchant ?? transaction.description}`)
-    setRuleConditionField('merchant')
-    setRuleConditionOperator('contains')
-    setRuleConditionValue((transaction.merchant ?? transaction.description).trim())
-    setIsCreatingCategory(false)
-    setIsCreatingSubcategory(false)
-    setNewCategoryName('')
-    setNewCategoryIcon('🏷️')
-    setNewSubcategoryName('')
-    setNewSubcategoryIcon('📂')
-  }, [transaction])
-
   async function saveChanges() {
-    if (!transaction) return
-
     let categoryToSave = editCategory
     let subcategoryToSave = editSubcategory
     let categoryIdForSubcategory = categoryTaxonomy.find(category => category.name === categoryToSave)?.id
@@ -233,7 +199,6 @@ export function TransactionDetailPage() {
   }
 
   function submitSplit() {
-    if (!transaction) return
     const baseAmount = Math.abs(transaction.amount)
     const rows = splitRows
       .filter(row => Number(row.amount) > 0 && row.category.trim())
@@ -249,19 +214,6 @@ export function TransactionDetailPage() {
         }
       })
     if (rows.length > 0) splitMutation.mutate({ id: transaction.id, splits: rows })
-  }
-
-  if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading transaction…</p>
-  }
-
-  if (!transaction) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">Transaction not found.</p>
-        <Link to="/transactions" className="text-sm text-primary hover:underline">Back to transactions</Link>
-      </div>
-    )
   }
 
   const txOwnership = transaction.ownershipOverride ?? account?.ownershipAllocation ?? []
@@ -473,5 +425,59 @@ export function TransactionDetailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export function TransactionDetailPage() {
+  const { transactionId = '' } = useParams()
+
+  const { data: transaction, isLoading } = useQuery({
+    queryKey: ['transaction', transactionId],
+    queryFn: () => apiClient.getTransaction(transactionId),
+    enabled: !!transactionId,
+  })
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => apiClient.getAccounts(),
+  })
+
+  const { data: owners = [] } = useQuery({
+    queryKey: ['owners'],
+    queryFn: () => apiClient.getOwners(),
+  })
+
+  const { data: rules = [] } = useQuery({
+    queryKey: ['rules'],
+    queryFn: () => apiClient.getRules(),
+  })
+
+  const { data: categoryTaxonomy = [] } = useQuery({
+    queryKey: ['category-taxonomy'],
+    queryFn: () => apiClient.getCategoryTaxonomy(),
+  })
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading transaction…</p>
+  }
+
+  if (!transaction) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">Transaction not found.</p>
+        <Link to="/transactions" className="text-sm text-primary hover:underline">Back to transactions</Link>
+      </div>
+    )
+  }
+
+  return (
+    <TransactionDetailEditor
+      key={transaction.id}
+      transaction={transaction}
+      accounts={accounts}
+      owners={owners}
+      rules={rules}
+      categoryTaxonomy={categoryTaxonomy}
+    />
   )
 }
