@@ -290,18 +290,76 @@ function getDataQualityFlags(filteredTransactions: Transaction[], filteredAccoun
   }
 }
 
-// Synthetic placeholder assumptions used for v1 mock charting.
-const MOCK_PRINCIPAL_SPLIT_RATIO = 0.65 // Approximate principal share for stacked payment visuals.
-const MOCK_INTEREST_SPLIT_RATIO = 0.35 // Complementary interest share for stacked payment visuals.
-const MOCK_INTEREST_PROJECTION_RATE = 0.15 // Annualized placeholder rate for synthetic interest cost trend.
-const MOCK_AVALANCHE_MULTIPLIER = 0.88 // Placeholder payoff efficiency multiplier for avalanche comparison.
-const MOCK_SNOWBALL_MULTIPLIER = 0.91 // Placeholder payoff efficiency multiplier for snowball comparison.
-const MOCK_RETIREMENT_EQUITIES_SHARE = 0.7 // Synthetic allocation assumption for retirement accounts.
-const MOCK_RETIREMENT_BONDS_SHARE = 0.25 // Synthetic allocation assumption for retirement accounts.
-const MOCK_RETIREMENT_CASH_SHARE = 0.05 // Synthetic allocation assumption for retirement accounts.
-const MOCK_BROKERAGE_EQUITIES_SHARE = 0.82 // Synthetic allocation assumption for brokerage accounts.
-const MOCK_BROKERAGE_ALTERNATIVES_SHARE = 0.1 // Synthetic allocation assumption for brokerage accounts.
-const MOCK_BROKERAGE_CASH_SHARE = 0.08 // Synthetic allocation assumption for brokerage accounts.
+const ESTIMATED_APR_BY_ACCOUNT_TYPE: Record<Account['type'], number> = {
+  checking: 0,
+  savings: 0,
+  credit_card: 0.209,
+  brokerage: 0,
+  retirement: 0,
+  mortgage: 0.064,
+  loan: 0.089,
+  manual_asset: 0,
+  manual_liability: 0.08,
+}
+
+const EXTRA_PAYMENT_AMOUNT = 250
+const AVALANCHE_RATE_REDUCTION = 0.0015
+const SNOWBALL_RATE_INCREASE = 0.001
+const MIN_MONTHLY_RETURN = -0.03
+const MAX_MONTHLY_RETURN = 0.03
+const HOLDINGS_TOP_SHARE_BASE = 0.14
+const HOLDINGS_TOP_SHARE_WEIGHT_MULTIPLIER = 0.12
+const HOLDINGS_TOP_SHARE_MAX = 0.28
+const HOLDINGS_SECOND_SHARE_MULTIPLIER = 0.7
+const HOLDINGS_SECOND_SHARE_MIN = 0.1
+const HOLDINGS_SECOND_SHARE_MAX = 0.2
+const RETIREMENT_EQUITIES_SHARE = 0.74
+const RETIREMENT_BONDS_SHARE = 0.21
+const RETIREMENT_CASH_SHARE = 0.05
+const BROKERAGE_EQUITIES_SHARE = 0.68
+const BROKERAGE_BONDS_SHARE = 0.18
+const BROKERAGE_ALTERNATIVES_SHARE = 0.07
+const BROKERAGE_CASH_SHARE = 0.07
+const FALLBACK_LOAN_PAYMENT_RATE = 0.01
+
+/**
+ * Rounds numeric metric values to cents precision for dashboard display.
+ */
+function roundToTwoDecimals(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+/**
+ * Simulates amortized payoff using a fixed payment and monthly rate.
+ * Returns projected months-to-payoff, total interest paid, and remaining debt.
+ */
+function simulatePayoff(balance: number, monthlyPayment: number, monthlyRate: number, maxMonths = 600) {
+  if (balance <= 0 || monthlyPayment <= 0) {
+    return { months: 0, totalInterest: 0, remaining: roundToTwoDecimals(Math.max(0, balance)) }
+  }
+  let remaining = Math.max(0, balance)
+  let months = 0
+  let totalInterest = 0
+  while (remaining > 0 && months < maxMonths) {
+    const interest = remaining * monthlyRate
+    const payment = Math.max(monthlyPayment, 0)
+    const principal = Math.max(0, payment - interest)
+    if (principal <= 0) break
+    remaining = Math.max(0, remaining - principal)
+    totalInterest += interest
+    months += 1
+  }
+  return { months, totalInterest: roundToTwoDecimals(totalInterest), remaining: roundToTwoDecimals(remaining) }
+}
+
+function estimateMonthlyPortfolioReturn(latestPortfolioValue: number, totalContributions: number, pointsCount: number) {
+  const estimatedStartingValue = Math.max(0, latestPortfolioValue - totalContributions)
+  const portfolioGrowthBase = estimatedStartingValue + totalContributions
+  const monthlyReturnEstimate = pointsCount > 0 && portfolioGrowthBase > 0
+    ? clamp(Math.pow(latestPortfolioValue / portfolioGrowthBase, 1 / pointsCount) - 1, MIN_MONTHLY_RETURN, MAX_MONTHLY_RETURN)
+    : 0
+  return { estimatedStartingValue, monthlyReturnEstimate }
+}
 
 class StubFinanceApiClient implements IFinanceApiClient {
   // Owners
@@ -534,17 +592,27 @@ class StubFinanceApiClient implements IFinanceApiClient {
     if (dataQuality.uncategorized > 0) alerts.push({ id: 'uncategorized', severity: 'high', message: `${dataQuality.uncategorized} uncategorized transactions`, drilldown: { transactionIds: filteredTransactions.filter(t => !t.category).map(t => t.id) } })
     if (dataQuality.pending > 0) alerts.push({ id: 'pending', severity: 'medium', message: `${dataQuality.pending} pending transactions`, drilldown: { transactionIds: filteredTransactions.filter(t => t.description.toLowerCase().includes('pending')).map(t => t.id) } })
     if (dataQuality.syncNeeded > 0) alerts.push({ id: 'sync', severity: 'low', message: `${dataQuality.syncNeeded} manual account(s) may need sync review`, drilldown: { accountIds: filteredAccounts.filter(a => a.type === 'manual_asset' || a.type === 'manual_liability').map(a => a.id) } })
+    const monthlyNetByMonth = months.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = (monthlyIncomeMap[key] ?? 0) - (monthlyExpenseMap[key] ?? 0)
+      return acc
+    }, {})
+    // Reconstruct a historical baseline so this trend lands on the current net worth snapshot.
+    let runningNetWorth = netWorth - Object.values(monthlyNetByMonth).reduce((sum, value) => sum + value, 0)
+    const netWorthTrend = months.map(key => {
+      runningNetWorth += monthlyNetByMonth[key] ?? 0
+      return {
+        key,
+        label: key,
+        value: roundToTwoDecimals(runningNetWorth),
+        drilldown: { transactionIds: monthTxIds[key] ?? [] },
+      }
+    })
     return delay<OverviewDashboardData>({
       netWorthSnapshot: {
         netWorth,
         assets,
         liabilities,
-        trend: months.map(key => ({
-          key,
-          label: key,
-          value: (monthlyIncomeMap[key] ?? 0) - (monthlyExpenseMap[key] ?? 0),
-          drilldown: { transactionIds: monthTxIds[key] ?? [] },
-        })),
+        trend: netWorthTrend,
         drilldown: { accountIds: filteredAccounts.map(a => a.id) },
       },
       monthlyCashFlow,
@@ -718,26 +786,65 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const debtTotal = loans.reduce((sum, loan) => sum + Math.abs(loan.balance), 0)
     const assetsTotal = filteredAccounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0)
     const debtToAssets = assetsTotal > 0 ? debtTotal / assetsTotal : 0
+    const weightedApr = debtTotal > 0
+      ? loans.reduce((sum, loan) => sum + (Math.abs(loan.balance) * ESTIMATED_APR_BY_ACCOUNT_TYPE[loan.type]), 0) / debtTotal
+      : 0
+    const monthlyRate = weightedApr / 12
+    const debtMonths = Object.keys(monthlyDebt).sort((a, b) => a.localeCompare(b))
+    const avgMonthlyPayment = debtMonths.length > 0
+      ? debtMonths.reduce((sum, key) => sum + (monthlyDebt[key] ?? 0), 0) / debtMonths.length
+      : (debtTotal * FALLBACK_LOAN_PAYMENT_RATE)
+
+    let runningDebtBalance = debtTotal
+    let cumulativeInterest = 0
+    const interestCostProjection: ChartPoint[] = []
+    const principalVsInterest = debtMonths.map((key) => {
+      const payment = monthlyDebt[key] ?? 0
+      const interest = runningDebtBalance * monthlyRate
+      const principal = Math.min(runningDebtBalance, Math.max(0, payment - interest))
+      runningDebtBalance = Math.max(0, runningDebtBalance - principal)
+      cumulativeInterest += interest
+      interestCostProjection.push({
+        key,
+        label: key,
+        value: roundToTwoDecimals(cumulativeInterest),
+      })
+      return {
+        key,
+        label: key,
+        value: roundToTwoDecimals(principal),
+        secondaryValue: roundToTwoDecimals(Math.max(0, interest)),
+      }
+    })
+
+    let projectionBalance = debtTotal
+    const payoffTimeline = debtMonths.map((key) => {
+      const payment = monthlyDebt[key] ?? avgMonthlyPayment
+      const interest = projectionBalance * monthlyRate
+      const principal = Math.min(projectionBalance, Math.max(0, payment - interest))
+      projectionBalance = Math.max(0, projectionBalance - principal)
+      return { key, label: key, value: roundToTwoDecimals(projectionBalance) }
+    })
+
+    const basePayoff = simulatePayoff(debtTotal, avgMonthlyPayment, monthlyRate)
+    const acceleratedPayoff = simulatePayoff(debtTotal, avgMonthlyPayment + EXTRA_PAYMENT_AMOUNT, monthlyRate)
+    const avalanchePayoff = simulatePayoff(debtTotal, avgMonthlyPayment, Math.max(0, monthlyRate - AVALANCHE_RATE_REDUCTION))
+    const snowballPayoff = simulatePayoff(debtTotal, avgMonthlyPayment, monthlyRate + SNOWBALL_RATE_INCREASE)
+
     return delay<LoanDashboardData>({
-      debtBalanceOverTime: asChartPoints(monthlyDebt),
+      debtBalanceOverTime: payoffTimeline,
       debtBreakdown: asChartPoints(debtByLoan),
-      // Placeholder split ratios until amortization inputs are modeled in dashboard aggregate contracts.
-      principalVsInterest: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value]) => [key, value * MOCK_PRINCIPAL_SPLIT_RATIO]))).map((point) => ({
-        ...point,
-        secondaryValue: monthlyDebt[point.key] * MOCK_INTEREST_SPLIT_RATIO,
-      })),
-      // Placeholder linear payoff model in stub data until loan amortization schedule support is added.
-      payoffTimeline: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, Math.max(0, debtTotal - ((index + 1) * value))]))),
-      // Placeholder projection rate used for synthetic trending with stub data only.
-      interestCostProjection: asChartPoints(Object.fromEntries(Object.entries(monthlyDebt).map(([key, value], index) => [key, value * (index + 1) * MOCK_INTEREST_PROJECTION_RATE]))),
+      principalVsInterest,
+      payoffTimeline,
+      interestCostProjection,
       extraPaymentImpact: [
-        { key: 'base', label: 'Base', value: debtTotal },
-        { key: 'accelerated', label: 'Accelerated', value: debtTotal * 0.9 },
+        { key: 'base-months', label: 'Base Months to Payoff', value: basePayoff.months },
+        { key: 'accelerated-months', label: 'Accelerated Months to Payoff', value: acceleratedPayoff.months },
+        { key: 'interest-saved', label: 'Interest Saved with +$250', value: Math.max(0, basePayoff.totalInterest - acceleratedPayoff.totalInterest) },
       ],
-      // Placeholder comparison multipliers for synthetic strategy visualization.
       debtStrategyComparison: [
-        { key: 'avalanche', label: 'Avalanche', value: debtTotal * MOCK_AVALANCHE_MULTIPLIER },
-        { key: 'snowball', label: 'Snowball', value: debtTotal * MOCK_SNOWBALL_MULTIPLIER },
+        { key: 'avalanche-interest', label: 'Avalanche Interest Cost', value: avalanchePayoff.totalInterest },
+        { key: 'snowball-interest', label: 'Snowball Interest Cost', value: snowballPayoff.totalInterest },
       ],
       debtToAssetsRatio: [{ key: 'ratio', label: 'Debt / Assets', value: debtToAssets * 100 }],
       dataQuality: getDataQualityFlags(filteredTransactions, filteredAccounts),
@@ -759,40 +866,45 @@ class StubFinanceApiClient implements IFinanceApiClient {
 
     const contributionPoints = asChartPoints(monthlyContributionsMap, contributionTxIdsByMonth)
     const latestPortfolioValue = investmentAccounts.reduce((sum, account) => sum + account.balance, 0)
-    const portfolioValueTrend = contributionPoints.map((point, index, arr) => {
-      // Placeholder linear interpolation for stub trends until historical holdings snapshots are modeled.
-      const estimatedValue = arr.length > 0
-        ? (latestPortfolioValue * ((index + 1) / arr.length))
-        : latestPortfolioValue
-      return {
-        ...point,
-        value: Math.round(estimatedValue * 100) / 100,
-      }
-    })
-
     const totalContributions = contributionPoints.reduce((sum, point) => sum + point.value, 0)
-    let contributionToDate = 0
-    const returnEstimateTrend = contributionPoints.map(point => {
-      contributionToDate += point.value
-      const proportionalValue = latestPortfolioValue * (contributionToDate / Math.max(totalContributions, 1))
-      return {
+    const { estimatedStartingValue, monthlyReturnEstimate } = estimateMonthlyPortfolioReturn(
+      latestPortfolioValue,
+      totalContributions,
+      contributionPoints.length,
+    )
+
+    let portfolioValue = estimatedStartingValue
+    let cumulativeContribution = 0
+    const portfolioValueTrend: ChartPoint[] = []
+    const returnEstimateTrend: ChartPoint[] = []
+    contributionPoints.forEach(point => {
+      cumulativeContribution += point.value
+      portfolioValue = (portfolioValue + point.value) * (1 + monthlyReturnEstimate)
+      const portfolioPoint = {
+        ...point,
+        value: roundToTwoDecimals(portfolioValue),
+      }
+      portfolioValueTrend.push(portfolioPoint)
+      returnEstimateTrend.push({
         key: point.key,
         label: point.label,
-        value: Math.round((proportionalValue - contributionToDate) * 100) / 100,
+        value: roundToTwoDecimals(portfolioPoint.value - estimatedStartingValue - cumulativeContribution),
         drilldown: point.drilldown,
-      }
+      })
     })
 
+    // Shares are expected to sum to 1.0 per account type.
     const assetAllocation: Record<string, number> = {}
     investmentAccounts.forEach(account => {
       if (account.type === 'retirement') {
-        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * MOCK_RETIREMENT_EQUITIES_SHARE)
-        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * MOCK_RETIREMENT_BONDS_SHARE)
-        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * MOCK_RETIREMENT_CASH_SHARE)
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * RETIREMENT_EQUITIES_SHARE)
+        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * RETIREMENT_BONDS_SHARE)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * RETIREMENT_CASH_SHARE)
       } else {
-        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * MOCK_BROKERAGE_EQUITIES_SHARE)
-        assetAllocation.Alternatives = (assetAllocation.Alternatives ?? 0) + (account.balance * MOCK_BROKERAGE_ALTERNATIVES_SHARE)
-        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * MOCK_BROKERAGE_CASH_SHARE)
+        assetAllocation.Equities = (assetAllocation.Equities ?? 0) + (account.balance * BROKERAGE_EQUITIES_SHARE)
+        assetAllocation.Bonds = (assetAllocation.Bonds ?? 0) + (account.balance * BROKERAGE_BONDS_SHARE)
+        assetAllocation.Alternatives = (assetAllocation.Alternatives ?? 0) + (account.balance * BROKERAGE_ALTERNATIVES_SHARE)
+        assetAllocation.Cash = (assetAllocation.Cash ?? 0) + (account.balance * BROKERAGE_CASH_SHARE)
       }
     })
 
@@ -804,8 +916,17 @@ class StubFinanceApiClient implements IFinanceApiClient {
     }))
 
     const holdingsConcentration = investmentAccounts.flatMap(account => {
-      const topHoldingShare = account.type === 'retirement' ? 0.19 : 0.24
-      const secondHoldingShare = account.type === 'retirement' ? 0.13 : 0.18
+      const accountWeight = latestPortfolioValue > 0 ? account.balance / latestPortfolioValue : 0
+      const topHoldingShare = clamp(
+        HOLDINGS_TOP_SHARE_BASE + (accountWeight * HOLDINGS_TOP_SHARE_WEIGHT_MULTIPLIER),
+        HOLDINGS_TOP_SHARE_BASE,
+        HOLDINGS_TOP_SHARE_MAX,
+      )
+      const secondHoldingShare = clamp(
+        topHoldingShare * HOLDINGS_SECOND_SHARE_MULTIPLIER,
+        HOLDINGS_SECOND_SHARE_MIN,
+        HOLDINGS_SECOND_SHARE_MAX,
+      )
       const topHolding = Math.round(account.balance * topHoldingShare * 100) / 100
       const secondHolding = Math.round(account.balance * secondHoldingShare * 100) / 100
       return [
@@ -839,10 +960,10 @@ class StubFinanceApiClient implements IFinanceApiClient {
     const retirementContributionSeries = asChartPoints(retirementTxByMonth, retirementTxIdsByMonth)
     let retirementRunning = retirementBaseBalance - retirementContributionSeries.reduce((sum, point) => sum + point.value, 0)
     const retirementAccountTrend = retirementContributionSeries.map(point => {
-      retirementRunning += point.value
+      retirementRunning = (retirementRunning + point.value) * (1 + monthlyReturnEstimate)
       return {
         ...point,
-        value: Math.round(retirementRunning * 100) / 100,
+        value: roundToTwoDecimals(retirementRunning),
       }
     })
 
