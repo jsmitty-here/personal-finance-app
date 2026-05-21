@@ -43,8 +43,26 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }
 
+const IMPACT_WEIGHTS = {
+  savings: { slope: 1.4, base: 6, min: 2, max: 20 },
+  debt: { slope: 0.5, base: 4, min: 1, max: 16 },
+  rebalance: { equitySlope: 0.35, concentrationSlope: 0.4, min: 1, max: 12 },
+  taxLocation: { slope: 0.3, base: 2, min: 1, max: 10 },
+  retirementTimeline: { slope: 0.35, base: 2, min: 1, max: 14 },
+} as const
+
 function sumValues(points: { value: number }[]) {
   return points.reduce((sum, point) => sum + point.value, 0)
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
+}
+
+function getBehavioralStatus(guardrails: AdvisorGuardrail[]): AdvisorStatus {
+  if (guardrails.some(item => item.severity === 'high')) return 'action-needed'
+  if (guardrails.some(item => item.severity === 'medium')) return 'watch'
+  return 'on-track'
 }
 
 export function buildAdvisorInsights(input: {
@@ -57,15 +75,21 @@ export function buildAdvisorInsights(input: {
 }): AdvisorInsights {
   const { overview, spending, loans, investments, taxes, planning } = input
 
-  const latestCashFlow = overview.monthlyCashFlow[overview.monthlyCashFlow.length - 1]
+  const latestCashFlow = overview.monthlyCashFlow.length > 0
+    ? overview.monthlyCashFlow[overview.monthlyCashFlow.length - 1]
+    : undefined
   const monthlyIncome = latestCashFlow?.value ?? 0
   const monthlyExpenses = latestCashFlow?.secondaryValue ?? 0
   const monthlyNet = latestCashFlow?.tertiaryValue ?? (monthlyIncome - monthlyExpenses)
   const savingsRate = overview.savingsRate[0]?.value ?? 0
-  const debtToAssets = loans.debtToAssetsRatio[0]?.value ?? 0
+  const debtToAssetsPct = loans.debtToAssetsRatio[0]?.value ?? 0
 
   const totalPortfolio = sumValues(investments.accountAllocation)
-  const equities = investments.assetAllocation.find(point => point.label.toLowerCase().includes('equit'))?.value ?? 0
+  const equities = investments.assetAllocation.find(point => {
+    const label = point.label.trim().toLowerCase()
+    const key = point.key.trim().toLowerCase()
+    return label === 'equities' || key === 'equities'
+  })?.value ?? 0
   const equityShare = totalPortfolio > 0 ? (equities / totalPortfolio) * 100 : 0
   const topHolding = investments.holdingsConcentration[0]?.value ?? 0
   const topHoldingShare = totalPortfolio > 0 ? (topHolding / totalPortfolio) * 100 : 0
@@ -81,9 +105,11 @@ export function buildAdvisorInsights(input: {
   const retirementReadinessScore = bestScenario > worstScenario
     ? clamp(((baseScenario - worstScenario) / (bestScenario - worstScenario)) * 100, 5, 95)
     : 50
-  const emergencyTargetMonths = planning.breakEvenPoint.find(point => point.key === 'emergency-target')?.value ?? 0
+  const monthsToEmergencyTarget = planning.breakEvenPoint.find(point => point.key === 'emergency-target')?.value ?? 0
 
-  const monthOverMonthLatest = spending.monthOverMonth[spending.monthOverMonth.length - 1]
+  const monthOverMonthLatest = spending.monthOverMonth.length > 0
+    ? spending.monthOverMonth[spending.monthOverMonth.length - 1]
+    : undefined
   const monthOverMonthChange = monthOverMonthLatest?.tertiaryValue ?? 0
   const priorMonthSpend = monthOverMonthLatest?.secondaryValue ?? 0
   const spendingSpikePct = priorMonthSpend > 0 ? (monthOverMonthChange / priorMonthSpend) * 100 : 0
@@ -105,12 +131,12 @@ export function buildAdvisorInsights(input: {
       detail: `Spending is ${spendingSpikePct.toFixed(1)}% above the prior month.`,
     })
   }
-  if (debtToAssets > 35) {
+  if (debtToAssetsPct > 35) {
     guardrails.push({
       id: 'debt-burden',
       severity: 'high',
       title: 'Debt burden elevated',
-      detail: `Debt-to-assets is ${debtToAssets.toFixed(1)}%.`,
+      detail: `Debt-to-assets is ${debtToAssetsPct.toFixed(1)}%.`,
     })
   }
   if (topHoldingShare > 20) {
@@ -144,35 +170,56 @@ export function buildAdvisorInsights(input: {
       category: 'Cash Flow',
       title: 'Increase automated savings by $500/mo',
       rationale: 'Improves resilience and scenario outcomes from controllable behavior.',
-      estimatedImpact: clamp((15 - savingsRate) * 1.4 + 6, 2, 20),
+      estimatedImpact: clamp(
+        ((15 - savingsRate) * IMPACT_WEIGHTS.savings.slope) + IMPACT_WEIGHTS.savings.base,
+        IMPACT_WEIGHTS.savings.min,
+        IMPACT_WEIGHTS.savings.max,
+      ),
     },
     {
       id: 'debt-acceleration',
       category: 'Debt',
       title: 'Apply an extra $250/mo toward high-interest debt',
       rationale: 'Reduces interest drag and improves debt flexibility.',
-      estimatedImpact: clamp((debtToAssets - 20) * 0.5 + 4, 1, 16),
+      estimatedImpact: clamp(
+        ((debtToAssetsPct - 20) * IMPACT_WEIGHTS.debt.slope) + IMPACT_WEIGHTS.debt.base,
+        IMPACT_WEIGHTS.debt.min,
+        IMPACT_WEIGHTS.debt.max,
+      ),
     },
     {
       id: 'rebalance',
       category: 'Investments',
       title: 'Rebalance toward target allocation bands',
       rationale: 'Brings risk back in line with long-term plan.',
-      estimatedImpact: clamp(Math.abs(equityShare - 60) * 0.35 + Math.abs(topHoldingShare - 12) * 0.4, 1, 12),
+      estimatedImpact: clamp(
+        (Math.abs(equityShare - 60) * IMPACT_WEIGHTS.rebalance.equitySlope)
+        + (Math.abs(topHoldingShare - 12) * IMPACT_WEIGHTS.rebalance.concentrationSlope),
+        IMPACT_WEIGHTS.rebalance.min,
+        IMPACT_WEIGHTS.rebalance.max,
+      ),
     },
     {
       id: 'asset-location',
       category: 'Taxes',
       title: 'Shift tax-inefficient assets into tax-advantaged accounts',
       rationale: 'Reduces avoidable tax drag over time.',
-      estimatedImpact: clamp((taxableShare - 45) * 0.3 + 2, 1, 10),
+      estimatedImpact: clamp(
+        ((taxableShare - 45) * IMPACT_WEIGHTS.taxLocation.slope) + IMPACT_WEIGHTS.taxLocation.base,
+        IMPACT_WEIGHTS.taxLocation.min,
+        IMPACT_WEIGHTS.taxLocation.max,
+      ),
     },
     {
       id: 'retirement-timeline',
       category: 'Long-Term Plan',
       title: 'Model retiring 1-2 years later in scenario planning',
       rationale: 'Higher contribution horizon and shorter withdrawal horizon improve odds.',
-      estimatedImpact: clamp((75 - retirementReadinessScore) * 0.35 + 2, 1, 14),
+      estimatedImpact: clamp(
+        ((75 - retirementReadinessScore) * IMPACT_WEIGHTS.retirementTimeline.slope) + IMPACT_WEIGHTS.retirementTimeline.base,
+        IMPACT_WEIGHTS.retirementTimeline.min,
+        IMPACT_WEIGHTS.retirementTimeline.max,
+      ),
     },
   ].sort((a, b) => b.estimatedImpact - a.estimatedImpact)
 
@@ -180,14 +227,16 @@ export function buildAdvisorInsights(input: {
     {
       id: 'behavioral-coaching',
       title: 'Behavioral Coaching',
-      status: guardrails.some(item => item.severity === 'high') ? 'action-needed' : guardrails.some(item => item.severity === 'medium') ? 'watch' : 'on-track',
-      summary: `${guardrails.length} active guardrail${guardrails.length === 1 ? '' : 's'} in current filters.`,
+      status: getBehavioralStatus(guardrails),
+      summary: guardrails.some(item => item.id === 'stable')
+        ? 'No risk guardrails currently triggered.'
+        : `${guardrails.length} risk guardrail${guardrails.length === 1 ? '' : 's'} currently detected.`,
     },
     {
       id: 'holistic-planning',
       title: 'Holistic Planning',
       status: monthlyNet >= 0 && savingsRate >= 10 ? 'on-track' : 'watch',
-      summary: `Monthly net ${monthlyNet >= 0 ? 'surplus' : 'deficit'} and savings rate ${savingsRate.toFixed(1)}%.`,
+      summary: `Monthly net ${monthlyNet >= 0 ? 'surplus' : 'deficit'} ${formatCurrency(Math.abs(monthlyNet))} and savings rate ${savingsRate.toFixed(1)}%.`,
     },
     {
       id: 'tax-optimization',
@@ -205,7 +254,7 @@ export function buildAdvisorInsights(input: {
       id: 'retirement-planning',
       title: 'Retirement & Long-Term Planning',
       status: retirementReadinessScore >= 75 ? 'on-track' : retirementReadinessScore >= 60 ? 'watch' : 'action-needed',
-      summary: `Readiness ${retirementReadinessScore.toFixed(0)}% with emergency target ${Math.round(emergencyTargetMonths)} months away.`,
+      summary: `Readiness ${retirementReadinessScore.toFixed(0)}% with emergency target ${Math.round(monthsToEmergencyTarget)} months away.`,
     },
   ]
 

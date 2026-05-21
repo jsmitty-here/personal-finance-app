@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/client'
 import { useDashboardFoundation } from '@/features/dashboards/foundation'
@@ -46,25 +46,29 @@ export function AdvisorDashboardPage() {
     queryFn: () => apiClient.getPlanningDashboard(toApiFilters),
   })
 
-  const isLoading = overview.isLoading || spending.isLoading || loans.isLoading || investments.isLoading || taxes.isLoading || planning.isLoading
-  if (isLoading || !overview.data || !spending.data || !loans.data || !investments.data || !taxes.data || !planning.data) {
+  const dashboardQueries = [overview, spending, loans, investments, taxes, planning]
+  const isLoading = dashboardQueries.some(query => query.isLoading)
+  const missingData = dashboardQueries.some(query => !query.data)
+  if (isLoading || missingData) {
     return <p className="text-sm text-muted-foreground">Loading advisor dashboard…</p>
   }
 
-  const insights = useMemo(
-    () => buildAdvisorInsights({
-      overview: overview.data,
-      spending: spending.data,
-      loans: loans.data,
-      investments: investments.data,
-      taxes: taxes.data,
-      planning: planning.data,
-    }),
-    [investments.data, loans.data, overview.data, planning.data, spending.data, taxes.data],
-  )
+  const insights = buildAdvisorInsights({
+    overview: overview.data!,
+    spending: spending.data!,
+    loans: loans.data!,
+    investments: investments.data!,
+    taxes: taxes.data!,
+    planning: planning.data!,
+  })
 
-  const topRecommendation = insights.recommendations[0]
+  const topRecommendation = insights.recommendations.length > 0 ? insights.recommendations[0] : undefined
   const onTrackCount = insights.capabilities.filter(item => item.status === 'on-track').length
+  const toggleRecommendation = (recommendationId: string) => {
+    setCompletedRecommendations(prev => prev.includes(recommendationId)
+      ? prev.filter(id => id !== recommendationId)
+      : [...prev, recommendationId])
+  }
 
   return (
     <div className="space-y-4">
@@ -137,12 +141,10 @@ export function AdvisorDashboardPage() {
                     <td className="py-2 text-right">
                       <button
                         type="button"
-                        onClick={() => {
-                          setCompletedRecommendations(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])
-                        }}
+                        onClick={() => toggleRecommendation(item.id)}
                         className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
                       >
-                        {isCompleted ? 'Acted' : 'Mark done'}
+                        {isCompleted ? 'Done' : 'Mark Done'}
                       </button>
                     </td>
                   </tr>
